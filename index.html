@@ -209,6 +209,9 @@ button { cursor: pointer; }
 .sheet .sect { grid-column: 1 / -1; font-size: 11.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; border-top: 1px solid var(--line); padding-top: 12px; margin-top: 4px; }
 .sheet footer { display: flex; gap: 8px; padding: 12px 20px calc(14px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); }
 .sheet footer .sp { flex: 1; }
+.logorow { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.logohint { flex: 1 1 160px; color: var(--muted); font-size: 12.5px; }
+.btn.sm { padding: 5px 10px; font-size: 13px; }
 .formerr { grid-column: 1 / -1; color: var(--bad); font-size: 13px; }
 .openlink { font-size: 12.5px; font-weight: 600; color: var(--accent); }
 </style>
@@ -283,6 +286,9 @@ button { cursor: pointer; }
   <form id="form" novalidate>
     <label class="full">Company<input id="f-company" required autocomplete="off"></label>
     <label class="full">Company website (for the logo)<input id="f-domain" placeholder="e.g. figma.com" autocomplete="off"></label>
+    <div class="logorow full"><span id="logoPreview"></span><span class="logohint" id="logoHint">Logo comes from the website. Upload one if it looks wrong.</span>
+      <label class="btn sm" for="f-logoFile">Upload logo</label><input id="f-logoFile" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden>
+      <button class="btn sm" id="logoClear" type="button" hidden>Use website logo</button></div>
     <label class="full">Role<input id="f-role" placeholder="e.g. Quantitative Trading Intern" autocomplete="off"></label>
     <label>Stage<select id="f-stage"></select></label>
     <label>Date applied<input id="f-applied" type="date"></label>
@@ -372,6 +378,7 @@ button { cursor: pointer; }
   function logo(a, size) {
     const box = h("span", { class: "logo " + (size || ""), "aria-hidden": "true" });
     const mono = h("span", { class: "mono", style: "--h:" + (strHash(a.company || "") % 360) }, initials(a.company));
+    if (typeof a.logo === "string" && /^data:image\/(png|jpeg|webp|gif);base64,/.test(a.logo)) { box.append(h("img", { alt: "", src: a.logo })); return box; }
     const d = domainOf(a);
     const src = d ? "https://www.google.com/s2/favicons?domain=" + encodeURIComponent(d) + "&sz=128" : "";
     if (!src || logoState.get(src) === "bad") { box.append(mono); return box; }
@@ -531,6 +538,7 @@ button { cursor: pointer; }
     editing = a || null;
     $("sheetTitle").textContent = a ? (a.company || "Application") : "Add application";
     $("sheetLogo").replaceChildren(a ? logo(a) : "");
+    pendingLogo = undefined; showLogoPreview();
     F("company").value = a?.company || ""; F("domain").value = a?.domain || ""; F("role").value = a?.role || "";
     F("stage").value = a?.stage || "wishlist"; F("applied").value = a?.applied || "";
     F("location").value = a?.location || ""; F("pay").value = a?.pay || "";
@@ -555,6 +563,32 @@ button { cursor: pointer; }
   $("form").addEventListener("submit", e => { e.preventDefault(); save(); });
   $("saveBtn").addEventListener("click", save);
 
+  let pendingLogo; // undefined: unchanged, "": removed, data URL: new upload
+  function currentLogo() { return pendingLogo !== undefined ? pendingLogo : (editing && editing.logo) || ""; }
+  function showLogoPreview() {
+    const tmp = { company: F("company").value || (editing && editing.company) || "?", domain: F("domain").value, logo: currentLogo() };
+    $("logoPreview").replaceChildren(logo(tmp));
+    $("logoClear").hidden = !currentLogo();
+    $("logoHint").textContent = currentLogo() ? "Using your uploaded logo." : "Logo comes from the website. Upload one if it looks wrong.";
+  }
+  F("domain").addEventListener("change", showLogoPreview);
+  $("logoClear").addEventListener("click", () => { pendingLogo = ""; showLogoPreview(); });
+  F("logoFile").addEventListener("change", e => {
+    const file = e.target.files[0]; e.target.value = "";
+    if (!file) return;
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 128 / Math.max(img.naturalWidth || 128, img.naturalHeight || 128));
+      const c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round((img.naturalWidth || 128) * k)); c.height = Math.max(1, Math.round((img.naturalHeight || 128) * k));
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      pendingLogo = c.toDataURL("image/png"); showLogoPreview();
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); $("formErr").textContent = "That file couldn't be read as an image. Try a PNG or JPG."; $("formErr").hidden = false; };
+    img.src = url;
+  });
+
   async function save() {
     const company = F("company").value.trim();
     if (!company) { $("formErr").textContent = "Add a company name to save."; $("formErr").hidden = false; F("company").focus(); return; }
@@ -566,6 +600,7 @@ button { cursor: pointer; }
     const stage = F("stage").value;
     const base = editing ? Object.assign({}, editing, vals) : Object.assign({ createdAt: new Date().toISOString() }, vals);
     const doc = withStage(base, stage);
+    if (pendingLogo === "") delete doc.logo; else if (pendingLogo) doc.logo = pendingLogo;
     if (!vals.applied && IDX[stage] < 1) delete doc.applied;
     $("saveBtn").disabled = true;
     try {
