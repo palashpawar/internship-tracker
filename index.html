@@ -750,7 +750,7 @@ td.mono.soon { color: var(--warn); }
   window.addEventListener("online", () => { if (sync.token) sync.dirty ? push() : pull(); });
 
   // ---- Google Calendar: one-way mirror of dated next steps into an app-owned calendar
-  const GOOGLE_CLIENT_ID = "";
+  const GOOGLE_CLIENT_ID = "304321658728-t4bo42kkfgh73v4tiqitrgj8hsvnju0b.apps.googleusercontent.com";
   const CAL_KEY = "internship-pipeline:gcal-id", CAL_ON = "internship-pipeline:gcal-on", CAL_TOKEN = "internship-pipeline:gcal-token";
   const CAL_SCOPE = "https://www.googleapis.com/auth/calendar.app.created";
   const cal = { calendarId: ls.get(CAL_KEY), on: ls.get(CAL_ON) === "1", token: null, exp: 0, client: null, timer: null, running: false, again: false, state: "", at: null };
