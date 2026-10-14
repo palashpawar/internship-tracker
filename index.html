@@ -77,6 +77,8 @@ label.btn { display: inline-block; }
 .sync.ok::before { background: var(--good); }
 .sync.busy::before { background: var(--warn); }
 .sync.err { color: var(--bad); }
+.linkish { background: none; border: 0; padding: 0; color: var(--muted); font: inherit; font-weight: 500; margin-left: 10px; }
+.linkish:hover { color: var(--ink); text-decoration: underline; }
 .sync.err::before { background: var(--bad); }
 .syncpanel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px; max-width: 640px; }
 .syncpanel h2 { font-family: var(--font-display); font-size: 17px; margin: 0 0 6px; }
@@ -84,6 +86,7 @@ label.btn { display: inline-block; }
 .syncpanel ol { padding-left: 20px; }
 .syncpanel a { color: var(--accent); font-weight: 600; }
 .syncpanel code { font-family: var(--font-mono); font-size: 12.5px; background: var(--sunken); padding: 1px 5px; border-radius: 4px; }
+.syncpanel .calh { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
 .syncrow { display: flex; gap: 8px; flex-wrap: wrap; }
 .syncrow .field { flex: 1 1 220px; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
@@ -213,7 +216,7 @@ td.mono.soon { color: var(--warn); }
   <div class="top">
     <div>
       <h1>Internship Pipeline</h1>
-      <div class="sub" id="sub">Every application from wishlist to offer. <span class="sync" id="syncStatus"></span></div>
+      <div class="sub" id="sub">Every application from wishlist to offer. <span class="sync" id="syncStatus"></span> <button class="sync linkish" id="calStatus" type="button" hidden></button></div>
     </div>
     <div class="actions"><button class="btn" id="syncBtn" type="button">Sync</button><button class="btn" id="exportBtn" type="button">Export</button><label class="btn" for="importFile">Import</label><input id="importFile" type="file" accept="application/json,.json" hidden><button class="btn primary" id="addBtn" type="button">+ Add application</button></div>
   </div>
@@ -237,6 +240,13 @@ td.mono.soon { color: var(--warn); }
         <button class="btn" id="syncNowBtn" type="button">Sync now</button>
         <button class="btn danger" id="disconnectBtn" type="button">Disconnect this browser</button>
       </div>
+    </div>
+    <h2 class="calh">Google Calendar</h2>
+    <p id="calText">Adds every next step that has a date to an “Internship Pipeline” calendar in your Google account and keeps it up to date as you edit here.</p>
+    <div class="syncrow">
+      <button class="btn primary" id="calConnectBtn" type="button">Connect Google Calendar</button>
+      <button class="btn" id="calSyncBtn" type="button" hidden>Update calendar now</button>
+      <button class="btn danger" id="calDisconnectBtn" type="button" hidden>Disconnect calendar</button>
     </div>
   </section>
 
@@ -288,8 +298,9 @@ td.mono.soon { color: var(--warn); }
     <label>Pay<input id="f-pay" placeholder="e.g. $55/hr" autocomplete="off"></label>
     <label class="full">Posting link<input id="f-link" type="url" placeholder="https://" autocomplete="off"></label>
     <div class="sect">Next step</div>
-    <label>What<input id="f-next" placeholder="e.g. HackerRank due" autocomplete="off"></label>
+    <label class="full">What<input id="f-next" placeholder="e.g. HackerRank due" autocomplete="off"></label>
     <label>When<input id="f-nextDate" type="date"></label>
+    <label>Time (optional)<input id="f-nextTime" type="time"></label>
     <label class="full">Contact<input id="f-contact" placeholder="Recruiter, referrer" autocomplete="off"></label>
     <label class="full">Notes<textarea id="f-notes" placeholder="Interview questions, impressions, follow-ups"></textarea></label>
     <div class="formerr" id="formErr" hidden></div>
@@ -302,6 +313,7 @@ td.mono.soon { color: var(--warn); }
   </footer>
 </aside>
 
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
 (function () {
   const STAGES = [
@@ -341,6 +353,7 @@ td.mono.soon { color: var(--warn); }
   function todayISO() { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); }
   function dayDiff(iso) { const a = new Date(iso + "T00:00:00"), b = new Date(todayISO() + "T00:00:00"); return Math.round((a - b) / 864e5); }
   function fmt(iso) { if (!iso) return ""; const d = new Date(iso + "T00:00:00"); return d.toLocaleDateString(undefined, { month: "short", day: "numeric" }); }
+  function fmtTime(t) { if (!/^\d\d:\d\d$/.test(t || "")) return ""; const [hh, mm] = t.split(":").map(Number); const d = new Date(2000, 0, 1, hh, mm); return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); }
   function urgency(iso) { if (!iso) return ""; const n = dayDiff(iso); return n < 0 ? "overdue" : n <= 3 ? "soon" : ""; }
   function rel(iso) { const n = dayDiff(iso); if (n === 0) return "today"; if (n === 1) return "tomorrow"; if (n === -1) return "yesterday"; return n < 0 ? (-n) + "d ago" : "in " + n + "d"; }
 
@@ -430,7 +443,7 @@ td.mono.soon { color: var(--warn); }
     items.forEach(a => {
       u.append(h("li", { tabindex: "0", onclick: () => openSheet(a), onkeydown: e => { if (e.key === "Enter") openSheet(a); } },
         h("div", { class: "when " + urgency(a.nextDate) }, fmt(a.nextDate), h("br"), rel(a.nextDate)),
-        h("div", null, h("div", { class: "what" }, a.next || LABEL[a.stage]), h("div", { class: "who" }, [a.company, a.role].filter(Boolean).join(" · ")))));
+        h("div", null, h("div", { class: "what" }, a.next || LABEL[a.stage]), h("div", { class: "who" }, [fmtTime(a.nextTime), a.company, a.role].filter(Boolean).join(" · ")))));
     });
   }
 
@@ -455,7 +468,7 @@ td.mono.soon { color: var(--warn); }
 
   function nextLine(a) {
     if (!a.next && !a.nextDate) return a.applied ? h("div", { class: "nx" }, h("span", { class: "d" }, "Applied " + fmt(a.applied))) : null;
-    return h("div", { class: "nx " + urgency(a.nextDate) }, a.nextDate ? h("span", { class: "d" }, fmt(a.nextDate)) : null, h("span", null, a.next || ""));
+    return h("div", { class: "nx " + urgency(a.nextDate) }, a.nextDate ? h("span", { class: "d" }, [fmt(a.nextDate), fmtTime(a.nextTime)].filter(Boolean).join(" ")) : null, h("span", null, a.next || ""));
   }
 
   let dragId = null;
@@ -503,7 +516,7 @@ td.mono.soon { color: var(--warn); }
       h("td", null, h("span", { class: "pill " + a.stage }, LABEL[a.stage] || a.stage)),
       h("td", { class: "mono" }, a.applied ? fmt(a.applied) : "—"),
       h("td", null, a.next || "—"),
-      h("td", { class: "mono " + urgency(a.nextDate) }, a.nextDate ? fmt(a.nextDate) : "—"),
+      h("td", { class: "mono " + urgency(a.nextDate) }, a.nextDate ? [fmt(a.nextDate), fmtTime(a.nextTime)].filter(Boolean).join(" ") : "—"),
       h("td", null, a.location || ""),
       h("td", null, a.pay || ""))));
     m.append(h("div", { class: "tbl-scroll" }, h("table", null,
@@ -549,7 +562,7 @@ td.mono.soon { color: var(--warn); }
     F("company").value = a?.company || ""; F("role").value = a?.role || "";
     F("stage").value = a?.stage || "wishlist"; F("applied").value = a?.applied || "";
     F("location").value = a?.location || ""; F("pay").value = a?.pay || "";
-    F("link").value = a?.link || ""; F("next").value = a?.next || ""; F("nextDate").value = a?.nextDate || "";
+    F("link").value = a?.link || ""; F("next").value = a?.next || ""; F("nextDate").value = a?.nextDate || ""; F("nextTime").value = a?.nextTime || "";
     F("contact").value = a?.contact || ""; F("notes").value = a?.notes || "";
     $("formErr").hidden = true;
     $("delBtn").hidden = !(a && canWrite); delArmed = false; $("delBtn").classList.remove("armed"); $("delBtn").textContent = "Delete";
@@ -575,7 +588,7 @@ td.mono.soon { color: var(--warn); }
     if (!company) { $("formErr").textContent = "Add a company name to save."; $("formErr").hidden = false; F("company").focus(); return; }
     const vals = {
       company, role: F("role").value.trim(), applied: F("applied").value, location: F("location").value.trim(),
-      pay: F("pay").value.trim(), link: F("link").value.trim(), next: F("next").value.trim(), nextDate: F("nextDate").value,
+      pay: F("pay").value.trim(), link: F("link").value.trim(), next: F("next").value.trim(), nextDate: F("nextDate").value, nextTime: F("nextDate").value ? F("nextTime").value : "",
       contact: F("contact").value.trim(), notes: F("notes").value
     };
     const stage = F("stage").value;
@@ -614,7 +627,7 @@ td.mono.soon { color: var(--warn); }
     const subs = [];
     const emit = () => { const docs = Object.entries(data).map(([id, d]) => ({ id, data: () => d })); subs.forEach(f => f({ docs })); };
     const save = () => { if (!ls.set(KEY, JSON.stringify(data))) ok = false; };
-    const changed = () => { save(); emit(); schedulePush(); };
+    const changed = () => { save(); emit(); schedulePush(); scheduleCal(); };
     window.addEventListener("storage", e => { if (e.key === KEY) { try { data = JSON.parse(e.newValue || "{}") || {}; } catch (x) {} emit(); } });
     const newId = () => "a" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
     return {
@@ -624,7 +637,7 @@ td.mono.soon { color: var(--warn); }
       onSnapshot(f) { subs.push(f); emit(); return () => {}; },
       all: () => data,
       merge(obj) { Object.assign(data, obj); changed(); },
-      replace(obj) { data = obj; save(); emit(); }
+      replace(obj) { data = obj; save(); emit(); scheduleCal(); }
     };
   }
 
@@ -663,9 +676,10 @@ td.mono.soon { color: var(--warn); }
     const f = g.files[FILE];
     const text = f.truncated ? await (await fetch(f.raw_url, { cache: "no-store" })).text() : f.content;
     const p = JSON.parse(text || "{}");
+    if (p && typeof p.calendarId === "string" && p.calendarId !== cal.calendarId) { cal.calendarId = p.calendarId; ls.set(CAL_KEY, p.calendarId); }
     return (p && typeof p.applications === "object" && p.applications) || {};
   }
-  const serialize = obj => JSON.stringify({ version: 1, updated: new Date().toISOString(), applications: obj }, null, 1);
+  const serialize = obj => JSON.stringify(Object.assign({ version: 1, updated: new Date().toISOString() }, cal.calendarId ? { calendarId: cal.calendarId } : {}, { applications: obj }), null, 1);
   function syncError(e) {
     if (e && e.status === 401) { setSync("err", "GitHub rejected the token. Open Sync and connect again."); disconnect(true); return; }
     if (e && (e.status === 403 || e.status === 429)) { setSync("err", "GitHub is rate-limiting requests. Changes are kept here and will sync shortly."); setTimeout(() => sync.dirty ? push() : pull(), 60000); return; }
@@ -735,6 +749,121 @@ td.mono.soon { color: var(--warn); }
   });
   window.addEventListener("online", () => { if (sync.token) sync.dirty ? push() : pull(); });
 
+  // ---- Google Calendar: one-way mirror of dated next steps into an app-owned calendar
+  const GOOGLE_CLIENT_ID = "";
+  const CAL_KEY = "internship-pipeline:gcal-id", CAL_ON = "internship-pipeline:gcal-on", CAL_TOKEN = "internship-pipeline:gcal-token";
+  const CAL_SCOPE = "https://www.googleapis.com/auth/calendar.app.created";
+  const cal = { calendarId: ls.get(CAL_KEY), on: ls.get(CAL_ON) === "1", token: null, exp: 0, client: null, timer: null, running: false, again: false, state: "", at: null };
+  try { const t = JSON.parse(sessionStorage.getItem(CAL_TOKEN) || "null"); if (t && t.exp > Date.now() + 60000) { cal.token = t.token; cal.exp = t.exp; } } catch (e) {}
+  const tz = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) { return "UTC"; } })();
+
+  function calStatus(state, text) {
+    cal.state = state;
+    const b = $("calStatus");
+    b.hidden = !cal.on;
+    b.className = "sync linkish " + (state === "ok" ? "ok" : state === "err" ? "err" : state === "busy" ? "busy" : "");
+    b.textContent = text;
+    $("calConnectBtn").hidden = cal.on && !!cal.token;
+    $("calConnectBtn").textContent = cal.on ? "Reconnect Google Calendar" : "Connect Google Calendar";
+    $("calSyncBtn").hidden = !(cal.on && cal.token);
+    $("calDisconnectBtn").hidden = !cal.on;
+    if (!GOOGLE_CLIENT_ID) { $("calText").textContent = "Calendar sync isn't set up yet: this page needs a Google OAuth client ID."; $("calConnectBtn").disabled = true; }
+  }
+  function calIdle() {
+    if (!cal.on) return calStatus("off", "");
+    if (!cal.token || cal.exp < Date.now() + 30000) return calStatus("busy", "Calendar: click to update");
+    calStatus("ok", "Calendar updated" + (cal.at ? " " + new Date(cal.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : ""));
+  }
+  function tokenClient() {
+    if (cal.client) return cal.client;
+    if (!(window.google && google.accounts && google.accounts.oauth2)) return null;
+    cal.client = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID, scope: CAL_SCOPE,
+      callback: resp => {
+        if (resp.error || !resp.access_token) { calStatus("err", "Calendar: Google sign-in didn't finish"); return; }
+        if (google.accounts.oauth2.hasGrantedAllScopes && !google.accounts.oauth2.hasGrantedAllScopes(resp, CAL_SCOPE)) { calStatus("err", "Calendar: permission wasn't granted"); return; }
+        cal.token = resp.access_token; cal.exp = Date.now() + (Number(resp.expires_in) || 3600) * 1000;
+        try { sessionStorage.setItem(CAL_TOKEN, JSON.stringify({ token: cal.token, exp: cal.exp })); } catch (e) {}
+        cal.on = true; ls.set(CAL_ON, "1");
+        calSync();
+      },
+      error_callback: () => calStatus("err", "Calendar: the Google sign-in window was closed or blocked")
+    });
+    return cal.client;
+  }
+  function calConnect() {
+    const c = tokenClient();
+    if (!c) { calStatus("err", "Calendar: Google sign-in is still loading, try again"); return; }
+    c.requestAccessToken({ prompt: cal.on ? "" : "consent" });
+  }
+  async function gcal(path, opts) {
+    opts = opts || {};
+    const headers = { "Authorization": "Bearer " + cal.token };
+    if (opts.body) headers["Content-Type"] = "application/json";
+    const r = await fetch("https://www.googleapis.com/calendar/v3" + path, Object.assign({}, opts, { headers }));
+    if (!r.ok) { const e = new Error("Calendar " + r.status); e.status = r.status; throw e; }
+    return r.status === 204 ? null : r.json();
+  }
+  function plusDays(iso, n) { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); const p = x => String(x).padStart(2, "0"); return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()); }
+  function plusMinutes(iso, t, n) { const [hh, mm] = t.split(":").map(Number); const d = new Date(iso + "T00:00:00"); d.setHours(hh, mm + n, 0, 0); const p = x => String(x).padStart(2, "0"); return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + "T" + p(d.getHours()) + ":" + p(d.getMinutes()) + ":00"; }
+  function hash(str) { let x = 5381; for (let i = 0; i < str.length; i++) x = ((x << 5) + x + str.charCodeAt(i)) | 0; return (x >>> 0).toString(36); }
+  function eventFor(id, a) {
+    const summary = a.company + ": " + (a.next || LABEL[a.stage] || "Next step");
+    const description = [[a.role, LABEL[a.stage]].filter(Boolean).join(" · "), a.notes, a.link, "Internship Pipeline: " + location.origin + location.pathname].filter(Boolean).join("\n\n");
+    let start, end;
+    if (/^\d\d:\d\d$/.test(a.nextTime || "")) { start = { dateTime: a.nextDate + "T" + a.nextTime + ":00", timeZone: tz }; end = { dateTime: plusMinutes(a.nextDate, a.nextTime, 60), timeZone: tz }; }
+    else { start = { date: a.nextDate }; end = { date: plusDays(a.nextDate, 1) }; }
+    const sig = hash(JSON.stringify([summary, description, start, end]));
+    return { summary, description, start, end, transparency: start.date ? "transparent" : "opaque", extendedProperties: { private: { appId: id, sig } } };
+  }
+  async function ensureCalendar() {
+    if (cal.calendarId) {
+      try { await gcal("/calendars/" + encodeURIComponent(cal.calendarId)); return; }
+      catch (e) { if (e.status !== 404 && e.status !== 403) throw e; }
+    }
+    const c = await gcal("/calendars", { method: "POST", body: JSON.stringify({ summary: "Internship Pipeline", description: "Next steps from " + location.origin + location.pathname, timeZone: tz }) });
+    cal.calendarId = c.id; ls.set(CAL_KEY, c.id);
+    schedulePush();
+  }
+  async function calSync() {
+    if (!cal.on || !cal.token || cal.exp < Date.now() + 30000) { calIdle(); return; }
+    if (cal.running) { cal.again = true; return; }
+    cal.running = true; calStatus("busy", "Updating calendar…");
+    try {
+      await ensureCalendar();
+      const base = "/calendars/" + encodeURIComponent(cal.calendarId) + "/events";
+      const existing = {}; let pageToken = "";
+      do {
+        const r = await gcal(base + "?maxResults=2500&showDeleted=false" + (pageToken ? "&pageToken=" + encodeURIComponent(pageToken) : ""));
+        (r.items || []).forEach(ev => { const id = ev.extendedProperties && ev.extendedProperties.private && ev.extendedProperties.private.appId; if (!id) return; if (existing[id]) gcal(base + "/" + ev.id, { method: "DELETE" }).catch(() => {}); else existing[id] = ev; });
+        pageToken = r.nextPageToken || "";
+      } while (pageToken);
+      const want = {};
+      Object.entries(col.all()).forEach(([id, a]) => { if (a.nextDate && !a.example && !CLOSED.has(a.stage) && /^\d{4}-\d\d-\d\d$/.test(a.nextDate)) want[id] = eventFor(id, a); });
+      for (const [id, body] of Object.entries(want)) {
+        const ev = existing[id];
+        if (!ev) await gcal(base, { method: "POST", body: JSON.stringify(body) });
+        else if (ev.extendedProperties.private.sig !== body.extendedProperties.private.sig) await gcal(base + "/" + ev.id, { method: "PUT", body: JSON.stringify(body) });
+      }
+      for (const [id, ev] of Object.entries(existing)) if (!want[id]) await gcal(base + "/" + ev.id, { method: "DELETE" }).catch(e => { if (e.status !== 404 && e.status !== 410) throw e; });
+      cal.at = Date.now(); calIdle();
+    } catch (e) {
+      if (e && e.status === 401) { cal.token = null; try { sessionStorage.removeItem(CAL_TOKEN); } catch (x) {} calStatus("busy", "Calendar: click to update"); }
+      else if (e && (e.status === 403 || e.status === 429)) calStatus("err", "Calendar: Google is limiting requests, try again in a minute");
+      else calStatus("err", "Calendar: couldn't reach Google, changes will go through next update");
+    } finally { cal.running = false; if (cal.again) { cal.again = false; calSync(); } }
+  }
+  function scheduleCal() { if (!cal.on || !cal.token) { if (cal.on) calIdle(); return; } clearTimeout(cal.timer); cal.timer = setTimeout(calSync, 1500); }
+  $("calConnectBtn").addEventListener("click", calConnect);
+  $("calSyncBtn").addEventListener("click", () => cal.token && cal.exp > Date.now() + 30000 ? calSync() : calConnect());
+  $("calStatus").addEventListener("click", () => cal.token && cal.exp > Date.now() + 30000 ? calSync() : calConnect());
+  $("calDisconnectBtn").addEventListener("click", () => {
+    if (cal.token && window.google && google.accounts && google.accounts.oauth2) try { google.accounts.oauth2.revoke(cal.token, () => {}); } catch (e) {}
+    cal.on = false; cal.token = null; ls.del(CAL_ON); try { sessionStorage.removeItem(CAL_TOKEN); } catch (e) {}
+    calIdle();
+  });
+  setInterval(() => { if (cal.on) calIdle(); }, 60000);
+
   const EXAMPLES = [
     ["Jane Street", "Quantitative Trader Intern", "final", 5, -47, "New York", "Superday", 2],
     ["Citadel Securities", "Quantitative Research Intern", "oa", 2, -24, "Chicago", "Online assessment due", -1],
@@ -763,7 +892,8 @@ td.mono.soon { color: var(--warn); }
   });
 
   syncIdle();
-  if (sync.token) pull();
+  calIdle();
+  if (sync.token) pull(); else scheduleCal();
 
   $("exportBtn").addEventListener("click", () => {
     const blob = new Blob([JSON.stringify({ version: 1, exported: new Date().toISOString(), applications: col.all() }, null, 2)], { type: "application/json" });
