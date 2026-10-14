@@ -72,6 +72,20 @@ button { cursor: pointer; }
 .btn.danger.armed { background: var(--bad); border-color: var(--bad); color: var(--surface); }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
 label.btn { display: inline-block; }
+.sync { white-space: nowrap; font-weight: 500; }
+.sync::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); margin-right: 6px; vertical-align: 1px; }
+.sync.ok::before { background: var(--good); }
+.sync.busy::before { background: var(--warn); }
+.sync.err { color: var(--bad); }
+.sync.err::before { background: var(--bad); }
+.syncpanel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px; max-width: 640px; }
+.syncpanel h2 { font-family: var(--font-display); font-size: 17px; margin: 0 0 6px; }
+.syncpanel p, .syncpanel ol { margin: 0 0 10px; color: var(--muted); }
+.syncpanel ol { padding-left: 20px; }
+.syncpanel a { color: var(--accent); font-weight: 600; }
+.syncpanel code { font-family: var(--font-mono); font-size: 12.5px; background: var(--sunken); padding: 1px 5px; border-radius: 4px; }
+.syncrow { display: flex; gap: 8px; flex-wrap: wrap; }
+.syncrow .field { flex: 1 1 220px; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 
 .notice { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; background: var(--accent-soft); border-radius: 8px; padding: 10px 14px; }
@@ -199,10 +213,32 @@ td.mono.soon { color: var(--warn); }
   <div class="top">
     <div>
       <h1>Internship Pipeline</h1>
-      <div class="sub" id="sub">Every application from wishlist to offer. Saved in this browser; use Export to back up or move devices.</div>
+      <div class="sub" id="sub">Every application from wishlist to offer. <span class="sync" id="syncStatus"></span></div>
     </div>
-    <div class="actions"><button class="btn" id="exportBtn" type="button">Export</button><label class="btn" for="importFile">Import</label><input id="importFile" type="file" accept="application/json,.json" hidden><button class="btn primary" id="addBtn" type="button">+ Add application</button></div>
+    <div class="actions"><button class="btn" id="syncBtn" type="button">Sync</button><button class="btn" id="exportBtn" type="button">Export</button><label class="btn" for="importFile">Import</label><input id="importFile" type="file" accept="application/json,.json" hidden><button class="btn primary" id="addBtn" type="button">+ Add application</button></div>
   </div>
+
+  <section class="syncpanel" id="syncPanel" hidden aria-labelledby="syncH">
+    <h2 id="syncH">Sync with GitHub</h2>
+    <div id="syncOff">
+      <p>Your applications are stored in a secret gist on your GitHub account, so this page shows the same data on every device. Connect once per browser with a GitHub token that has only the <code>gist</code> scope.</p>
+      <ol>
+        <li><a href="https://github.com/settings/tokens/new?scopes=gist&amp;description=Internship%20Pipeline" target="_blank" rel="noopener">Create a classic token with the gist scope ↗</a> (fine-grained tokens can't access gists).</li>
+        <li>Paste it below and connect. The token stays in this browser.</li>
+      </ol>
+      <div class="syncrow">
+        <input class="field" id="ghToken" type="password" placeholder="ghp_…" autocomplete="off" aria-label="GitHub token">
+        <button class="btn primary" id="connectBtn" type="button">Connect</button>
+      </div>
+    </div>
+    <div id="syncOn" hidden>
+      <p id="syncOnText"></p>
+      <div class="syncrow">
+        <button class="btn" id="syncNowBtn" type="button">Sync now</button>
+        <button class="btn danger" id="disconnectBtn" type="button">Disconnect this browser</button>
+      </div>
+    </div>
+  </section>
 
   <div class="notice" id="notice" hidden></div>
 
@@ -564,25 +600,140 @@ td.mono.soon { color: var(--warn); }
     catch (e) { $("formErr").textContent = "Couldn't delete. Try again."; $("formErr").hidden = false; }
   });
 
-  // ---- local storage backend (GitHub Pages build)
-  const KEY = "internship-pipeline:v1";
+  // ---- storage: this browser's copy, optionally synced to a secret GitHub gist
+  const KEY = "internship-pipeline:v1", TOKEN_KEY = "internship-pipeline:gh-token", GIST_KEY = "internship-pipeline:gist-id";
+  const FILE = "internship-pipeline.json";
+  const ls = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } },
+    del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+  };
   function localCollection() {
     let data = {}, ok = true;
     try { data = JSON.parse(localStorage.getItem(KEY) || "null") || {}; } catch (e) { ok = false; }
     const subs = [];
     const emit = () => { const docs = Object.entries(data).map(([id, d]) => ({ id, data: () => d })); subs.forEach(f => f({ docs })); };
-    const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { ok = false; } emit(); };
+    const save = () => { if (!ls.set(KEY, JSON.stringify(data))) ok = false; };
+    const changed = () => { save(); emit(); schedulePush(); };
     window.addEventListener("storage", e => { if (e.key === KEY) { try { data = JSON.parse(e.newValue || "{}") || {}; } catch (x) {} emit(); } });
     const newId = () => "a" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
     return {
       ok: () => ok,
-      fresh: () => { try { return localStorage.getItem(KEY) === null; } catch (e) { return false; } },
-      doc(id) { id = id || newId(); return { id, async set(v) { data[id] = JSON.parse(JSON.stringify(v)); persist(); }, async delete() { delete data[id]; persist(); } }; },
+      fresh: () => ls.get(KEY) === null,
+      doc(id) { id = id || newId(); return { id, async set(v) { data[id] = JSON.parse(JSON.stringify(v)); changed(); }, async delete() { delete data[id]; changed(); } }; },
       onSnapshot(f) { subs.push(f); emit(); return () => {}; },
       all: () => data,
-      merge(obj) { Object.assign(data, obj); persist(); }
+      merge(obj) { Object.assign(data, obj); changed(); },
+      replace(obj) { data = obj; save(); emit(); }
     };
   }
+
+  const sync = { token: ls.get(TOKEN_KEY), gistId: ls.get(GIST_KEY), timer: null, pushing: false, again: false, dirty: false, lastPull: 0, at: null };
+  function setSync(state, text) {
+    const el = $("syncStatus");
+    el.className = "sync " + (state === "ok" ? "ok" : state === "err" ? "err" : state === "busy" ? "busy" : "");
+    el.textContent = text;
+    $("syncOff").hidden = !!sync.token; $("syncOn").hidden = !sync.token;
+    if (sync.token) $("syncOnText").textContent = sync.gistId ? "Connected. Changes save to your secret gist a moment after you make them, and this page pulls the latest copy when you come back to it." : "Connecting…";
+  }
+  function syncIdle() {
+    if (!sync.token) return setSync("off", "Saved in this browser only. Turn on Sync to use it across devices.");
+    if (sync.dirty) return setSync("busy", "Unsaved changes…");
+    setSync("ok", sync.at ? "Synced to GitHub " + new Date(sync.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Synced to GitHub");
+  }
+  async function gh(path, opts) {
+    opts = opts || {};
+    const headers = { "Accept": "application/vnd.github+json", "Authorization": "Bearer " + sync.token, "X-GitHub-Api-Version": "2022-11-28" };
+    if (opts.body) headers["Content-Type"] = "application/json";
+    const r = await fetch("https://api.github.com" + path, Object.assign({ cache: "no-store" }, opts, { headers }));
+    if (!r.ok) { const e = new Error("GitHub " + r.status); e.status = r.status; throw e; }
+    return r.status === 204 ? null : r.json();
+  }
+  async function findGist() {
+    if (sync.gistId) { try { return await gh("/gists/" + sync.gistId); } catch (e) { if (e.status !== 404) throw e; } }
+    for (let page = 1; page <= 10; page++) {
+      const list = await gh("/gists?per_page=100&page=" + page);
+      const g = list.find(x => x.files && x.files[FILE]);
+      if (g) return gh("/gists/" + g.id);
+      if (list.length < 100) break;
+    }
+    return null;
+  }
+  async function readGist(g) {
+    const f = g.files[FILE];
+    const text = f.truncated ? await (await fetch(f.raw_url, { cache: "no-store" })).text() : f.content;
+    const p = JSON.parse(text || "{}");
+    return (p && typeof p.applications === "object" && p.applications) || {};
+  }
+  const serialize = obj => JSON.stringify({ version: 1, updated: new Date().toISOString(), applications: obj }, null, 1);
+  function syncError(e) {
+    if (e && e.status === 401) { setSync("err", "GitHub rejected the token. Open Sync and connect again."); disconnect(true); return; }
+    if (e && (e.status === 403 || e.status === 429)) { setSync("err", "GitHub is rate-limiting requests. Changes are kept here and will sync shortly."); setTimeout(() => sync.dirty ? push() : pull(), 60000); return; }
+    setSync("err", navigator.onLine === false ? "Offline. Changes are kept here and will sync when you reconnect." : "Couldn't reach GitHub. Changes are kept here; use Sync now to retry.");
+  }
+  async function pull(firstConnect) {
+    if (!sync.token) return;
+    setSync("busy", "Syncing…");
+    try {
+      const g = await findGist();
+      const mine = Object.fromEntries(Object.entries(col.all()).filter(([, v]) => !v.example));
+      if (!g) {
+        const created = await gh("/gists", { method: "POST", body: JSON.stringify({ description: "Internship Pipeline data", public: false, files: { [FILE]: { content: serialize(mine) } } }) });
+        sync.gistId = created.id; ls.set(GIST_KEY, created.id); col.replace(mine);
+      } else {
+        sync.gistId = g.id; ls.set(GIST_KEY, g.id);
+        if (!sync.dirty) {
+          const remote = await readGist(g);
+          if (firstConnect) {
+            const extra = Object.fromEntries(Object.entries(mine).filter(([id]) => !(id in remote)));
+            col.replace(Object.assign(remote, extra));
+            if (Object.keys(extra).length) { sync.dirty = true; }
+          } else col.replace(remote);
+        }
+      }
+      sync.lastPull = Date.now(); sync.at = Date.now();
+      if (sync.dirty) push(); else syncIdle();
+    } catch (e) { syncError(e); }
+  }
+  function schedulePush() {
+    if (!sync.token) return;
+    sync.dirty = true; syncIdle();
+    clearTimeout(sync.timer); sync.timer = setTimeout(push, 1200);
+  }
+  async function push(keepalive) {
+    if (!sync.token) return;
+    if (!sync.gistId) return pull();
+    if (sync.pushing) { sync.again = true; return; }
+    clearTimeout(sync.timer);
+    sync.pushing = true; sync.dirty = false; setSync("busy", "Saving…");
+    try {
+      await gh("/gists/" + sync.gistId, { method: "PATCH", keepalive: !!keepalive, body: JSON.stringify({ files: { [FILE]: { content: serialize(col.all()) } } }) });
+      sync.at = Date.now(); sync.lastPull = Date.now(); syncIdle();
+    } catch (e) { sync.dirty = true; syncError(e); }
+    finally { sync.pushing = false; if (sync.again) { sync.again = false; push(); } }
+  }
+  function disconnect(keepMessage) {
+    sync.token = null; sync.dirty = false; clearTimeout(sync.timer);
+    ls.del(TOKEN_KEY);
+    if (keepMessage) { $("syncOff").hidden = false; $("syncOn").hidden = true; $("syncPanel").hidden = false; } else syncIdle();
+  }
+  $("syncBtn").addEventListener("click", () => { $("syncPanel").hidden = !$("syncPanel").hidden; if (!$("syncPanel").hidden && !sync.token) $("ghToken").focus(); });
+  $("connectBtn").addEventListener("click", async () => {
+    const t = $("ghToken").value.trim();
+    if (!t) { $("ghToken").focus(); return; }
+    sync.token = t; ls.set(TOKEN_KEY, t); $("ghToken").value = "";
+    await pull(true);
+    if (sync.token && sync.gistId) $("syncPanel").hidden = true;
+  });
+  $("ghToken").addEventListener("keydown", e => { if (e.key === "Enter") $("connectBtn").click(); });
+  $("syncNowBtn").addEventListener("click", () => sync.dirty ? push() : pull());
+  $("disconnectBtn").addEventListener("click", () => { disconnect(false); $("syncPanel").hidden = true; });
+  document.addEventListener("visibilitychange", () => {
+    if (!sync.token) return;
+    if (document.visibilityState === "hidden" && sync.dirty) push(true);
+    else if (document.visibilityState === "visible" && !sync.dirty && !sync.pushing && Date.now() - sync.lastPull > 20000) pull();
+  });
+  window.addEventListener("online", () => { if (sync.token) sync.dirty ? push() : pull(); });
 
   const EXAMPLES = [
     ["Jane Street", "Quantitative Trader Intern", "final", 5, -47, "New York", "Superday", 2],
@@ -597,7 +748,7 @@ td.mono.soon { color: var(--warn); }
   render();
   col = localCollection();
   canWrite = true;
-  if (col.fresh()) {
+  if (col.fresh() && !sync.token) {
     const now = new Date().toISOString(), seed = {};
     EXAMPLES.forEach(([company, role, stage, reached, ap, location, next, nd], i) => {
       seed["ex" + (i + 1)] = { example: true, company: "Example: " + company, role, stage, reached, location, next, nextDate: nd == null ? "" : shift(nd), applied: ap == null ? undefined : shift(ap), notes: "Example row.", createdAt: now, updatedAt: now };
@@ -610,6 +761,9 @@ td.mono.soon { color: var(--warn); }
     render();
     if (!col.ok()) { const n = $("notice"); n.textContent = "This browser is blocking storage, so changes will be lost when you close the tab. Use Export to keep a copy."; n.classList.add("err"); n.hidden = false; }
   });
+
+  syncIdle();
+  if (sync.token) pull();
 
   $("exportBtn").addEventListener("click", () => {
     const blob = new Blob([JSON.stringify({ version: 1, exported: new Date().toISOString(), applications: col.all() }, null, 2)], { type: "application/json" });

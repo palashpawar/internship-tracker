@@ -5,5 +5,6 @@ A single-page internship and interview tracker: summary stats, a stage funnel, u
 **Live:** https://palashpawar.github.io/internship-tracker/
 
 - Stages: Wishlist → Applied → Online assessment → Phone screen → Interviews → Final round → Offer (plus Rejected / Withdrawn)
-- Data is saved in your browser's `localStorage` — nothing is sent anywhere. Use **Export** to back up to JSON and **Import** to restore or move to another device.
+- **Sync:** click *Sync* and paste a classic GitHub token with only the `gist` scope. Data lives in a secret gist on your own account (`internship-pipeline.json`), so every device shows the same tracker. The token stays in that browser's `localStorage`.
+- Without sync, data stays in the browser's `localStorage`. **Export** / **Import** move it as JSON.
 - No build step: it's one `index.html`.
