@@ -214,6 +214,12 @@ button { cursor: pointer; }
 .logorow { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .logohint { flex: 1 1 160px; color: var(--muted); font-size: 12.5px; }
 .btn.sm { padding: 5px 10px; font-size: 13px; }
+.evlist { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; }
+.evlist:empty { display: none; }
+.evrow { display: grid; grid-template-columns: minmax(0, 1fr) 132px 104px 32px; gap: 6px; align-items: center; }
+.evrow .x { font-size: 18px; padding: 2px 6px; }
+@media (max-width: 480px) { .evrow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 32px; } .evrow input:first-child { grid-column: 1 / -1; } }
+.sheet .full { grid-column: 1 / -1; }
 .formerr { grid-column: 1 / -1; color: var(--bad); font-size: 13px; }
 .openlink { font-size: 12.5px; font-weight: 600; color: var(--accent); }
 </style>
@@ -301,6 +307,9 @@ button { cursor: pointer; }
     <label class="full">What<input id="f-next" placeholder="e.g. HackerRank due" autocomplete="off"></label>
     <label>When<input id="f-nextDate" type="date"></label>
     <label>Time (optional)<input id="f-nextTime" type="time"></label>
+    <div class="sect">More dates</div>
+    <div class="evlist" id="evList"></div>
+    <div class="full"><button class="btn sm" id="addEv" type="button">+ Add another date</button></div>
     <label class="full">Contact<input id="f-contact" placeholder="Recruiter, referrer" autocomplete="off"></label>
     <label class="full">Notes<textarea id="f-notes" placeholder="Interview questions, impressions, follow-ups"></textarea></label>
     <div class="formerr" id="formErr" hidden></div>
@@ -363,6 +372,16 @@ button { cursor: pointer; }
   function dayDiff(iso) { const a = new Date(iso + "T00:00:00"), b = new Date(todayISO() + "T00:00:00"); return Math.round((a - b) / 864e5); }
   function fmt(iso) { if (!iso) return ""; const d = new Date(iso + "T00:00:00"); return d.toLocaleDateString(undefined, { month: "short", day: "numeric" }); }
   function fmtTime(t) { if (!/^\d\d:\d\d$/.test(t || "")) return ""; const [hh, mm] = t.split(":").map(Number); const d = new Date(2000, 0, 1, hh, mm); return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); }
+  // Every dated item on an application: its main next step plus any extra dates
+  function datedItems(a) {
+    const out = [];
+    if (a.nextDate) out.push({ key: "", what: a.next || LABEL[a.stage], date: a.nextDate, time: a.nextTime || "", primary: true });
+    (Array.isArray(a.events) ? a.events : []).forEach(e => {
+      if (e && /^\d{4}-\d\d-\d\d$/.test(e.date || "")) out.push({ key: String(e.id || ""), what: e.what || "Event", date: e.date, time: e.time || "", primary: false });
+    });
+    return out;
+  }
+  const byWhen = (x, y) => (x.date + (x.time || "99")).localeCompare(y.date + (y.time || "99"));
   function urgency(iso) { if (!iso) return ""; const n = dayDiff(iso); return n < 0 ? "overdue" : n === 0 ? "today" : n <= 3 ? "soon" : ""; }
   function rel(iso) { const n = dayDiff(iso); if (n === 0) return "today"; if (n === 1) return "tomorrow"; if (n === -1) return "yesterday"; return n < 0 ? (-n) + " days ago" : "in " + n + " days"; }
 
@@ -431,26 +450,28 @@ button { cursor: pointer; }
   function renderUpcoming() {
     const u = $("upcoming"); u.replaceChildren();
     if (!loaded) { u.append(h("div", { class: "emptybox" }, "Loading your applications…")); return; }
-    const all = apps.filter(a => a.nextDate && !CLOSED.has(a.stage)).sort((a, b) => (a.nextDate + (a.nextTime || "99")).localeCompare(b.nextDate + (b.nextTime || "99")));
+    const all = [];
+    apps.filter(a => !CLOSED.has(a.stage)).forEach(a => datedItems(a).forEach(it => { if (it.primary || dayDiff(it.date) >= 0) all.push(Object.assign({ a }, it)); }));
+    all.sort(byWhen);
     if (!all.length) { u.append(h("div", { class: "emptybox" }, "Nothing scheduled. Open an application and give its next step a date to see it here.")); return; }
-    const shown = all.filter(a => dayDiff(a.nextDate) <= 21).slice(0, 9);
+    const shown = all.filter(it => dayDiff(it.date) <= 21).slice(0, 12);
     const list = shown.length ? shown : all.slice(0, 3);
     const grid = h("div", { class: "upgrid" });
-    list.forEach(a => {
-      const d = new Date(a.nextDate + "T00:00:00");
-      grid.append(h("button", { type: "button", class: "up-card " + urgency(a.nextDate), onclick: () => openSheet(a) },
+    list.forEach(it => {
+      const a = it.a, d = new Date(it.date + "T00:00:00");
+      grid.append(h("button", { type: "button", class: "up-card " + urgency(it.date), onclick: () => openSheet(a) },
         h("div", { class: "datebox" },
           h("span", { class: "dow" }, d.toLocaleDateString(undefined, { weekday: "short" })),
           h("span", { class: "day" }, String(d.getDate())),
           h("span", { class: "mon" }, d.toLocaleDateString(undefined, { month: "short" }))),
         h("div", { style: "min-width:0" },
           h("div", { class: "up-co" }, logo(a, "sm"), h("span", null, a.company)),
-          h("div", { class: "up-what" }, a.next || LABEL[a.stage]),
-          h("div", { class: "up-meta" }, [fmtTime(a.nextTime), a.location].filter(Boolean).map(t => t + " · ").join(""), h("span", { class: "rel" }, rel(a.nextDate))))));
+          h("div", { class: "up-what" }, it.what),
+          h("div", { class: "up-meta" }, [fmtTime(it.time), a.location].filter(Boolean).map(t => t + " · ").join(""), h("span", { class: "rel" }, rel(it.date))))));
     });
     u.append(grid);
     const rest = all.length - list.length;
-    if (rest > 0) u.append(h("div", { class: "later" }, `${rest} more later: ` + all.slice(list.length, list.length + 4).map(a => `${a.company} (${fmt(a.nextDate)})`).join(", ") + (rest > 4 ? "…" : "")));
+    if (rest > 0) u.append(h("div", { class: "later" }, `${rest} more later: ` + all.slice(list.length, list.length + 4).map(it => `${it.a.company} (${fmt(it.date)})`).join(", ") + (rest > 4 ? "…" : "")));
   }
 
   function stepper(a) {
@@ -464,9 +485,12 @@ button { cursor: pointer; }
   }
 
   function nextCell(a) {
+    const extra = datedItems(a).filter(it => !it.primary && dayDiff(it.date) >= 0).sort(byWhen);
+    const more = extra.length ? h("span", { class: "d" }, "Also: " + extra.slice(0, 2).map(it => `${it.what} ${fmt(it.date)}${it.time ? " " + fmtTime(it.time) : ""}`).join("; ") + (extra.length > 2 ? ` +${extra.length - 2} more` : "")) : null;
+    if (!a.next && !a.nextDate && more) return h("div", { class: "nx" }, more);
     if (!a.next && !a.nextDate) return h("div", { class: "nx none" }, a.notes ? a.notes.split(/(?<=\.)\s/)[0] : "No next step logged");
     return h("div", { class: "nx" }, a.next || LABEL[a.stage],
-      a.nextDate ? h("span", { class: "d " + urgency(a.nextDate) }, [fmt(a.nextDate), fmtTime(a.nextTime), rel(a.nextDate)].filter(Boolean).join(" · ")) : null);
+      a.nextDate ? h("span", { class: "d " + urgency(a.nextDate) }, [fmt(a.nextDate), fmtTime(a.nextTime), rel(a.nextDate)].filter(Boolean).join(" · ")) : null, more);
   }
 
   function renderGroups() {
@@ -543,6 +567,7 @@ button { cursor: pointer; }
     $("sheetTitle").textContent = a ? (a.company || "Application") : "Add application";
     $("sheetLogo").replaceChildren(a ? logo(a) : "");
     pendingLogo = undefined; showLogoPreview();
+    $("evList").replaceChildren(); (Array.isArray(a?.events) ? a.events : []).slice().sort(byWhen).forEach(e => addEvRow(e));
     F("company").value = a?.company || ""; F("domain").value = a?.domain || ""; F("role").value = a?.role || "";
     F("stage").value = a?.stage || "wishlist"; F("applied").value = a?.applied || "";
     F("location").value = a?.location || ""; F("pay").value = a?.pay || "";
@@ -567,6 +592,24 @@ button { cursor: pointer; }
   $("form").addEventListener("submit", e => { e.preventDefault(); save(); });
   $("saveBtn").addEventListener("click", save);
 
+  function addEvRow(e) {
+    e = e || {};
+    const n = $("evList").children.length;
+    const row = h("div", { class: "evrow", "data-id": e.id || ("e" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)) },
+      h("input", { id: "ev-what-" + n, placeholder: "What (e.g. Intern All-Around)", value: e.what || "", "aria-label": "Event" }),
+      h("input", { id: "ev-date-" + n, type: "date", value: e.date || "", "aria-label": "Date" }),
+      h("input", { id: "ev-time-" + n, type: "time", value: e.time || "", "aria-label": "Time" }),
+      h("button", { class: "x", type: "button", "aria-label": "Remove date", onclick: () => row.remove() }, "×"));
+    $("evList").append(row);
+    return row;
+  }
+  $("addEv").addEventListener("click", () => addEvRow().querySelector("input").focus());
+  function readEvRows() {
+    return [...$("evList").children].map(r => {
+      const [w, d, t] = r.querySelectorAll("input");
+      return { id: r.dataset.id, what: w.value.trim(), date: d.value, time: d.value ? t.value : "" };
+    }).filter(e => e.date).sort(byWhen);
+  }
   let pendingLogo; // undefined: unchanged, "": removed, data URL: new upload
   function currentLogo() { return pendingLogo !== undefined ? pendingLogo : (editing && editing.logo) || ""; }
   function showLogoPreview() {
@@ -605,6 +648,7 @@ button { cursor: pointer; }
     const base = editing ? Object.assign({}, editing, vals) : Object.assign({ createdAt: new Date().toISOString() }, vals);
     const doc = withStage(base, stage);
     if (pendingLogo === "") delete doc.logo; else if (pendingLogo) doc.logo = pendingLogo;
+    const evs = readEvRows(); if (evs.length) doc.events = evs; else delete doc.events;
     if (!vals.applied && IDX[stage] < 1) delete doc.applied;
     $("saveBtn").disabled = true;
     try {
@@ -818,12 +862,12 @@ button { cursor: pointer; }
   function plusDays(iso, n) { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); const p = x => String(x).padStart(2, "0"); return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()); }
   function plusMinutes(iso, t, n) { const [hh, mm] = t.split(":").map(Number); const d = new Date(iso + "T00:00:00"); d.setHours(hh, mm + n, 0, 0); const p = x => String(x).padStart(2, "0"); return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + "T" + p(d.getHours()) + ":" + p(d.getMinutes()) + ":00"; }
   function hash(str) { let x = 5381; for (let i = 0; i < str.length; i++) x = ((x << 5) + x + str.charCodeAt(i)) | 0; return (x >>> 0).toString(36); }
-  function eventFor(id, a) {
-    const summary = a.company + ": " + (a.next || LABEL[a.stage] || "Next step");
+  function eventFor(id, a, it) {
+    const summary = a.company + ": " + (it.what || "Next step");
     const description = [[a.role, LABEL[a.stage]].filter(Boolean).join(" · "), a.notes, a.link, "Internship Pipeline: " + location.origin + location.pathname].filter(Boolean).join("\n\n");
     let start, end;
-    if (/^\d\d:\d\d$/.test(a.nextTime || "")) { start = { dateTime: a.nextDate + "T" + a.nextTime + ":00", timeZone: tz }; end = { dateTime: plusMinutes(a.nextDate, a.nextTime, 60), timeZone: tz }; }
-    else { start = { date: a.nextDate }; end = { date: plusDays(a.nextDate, 1) }; }
+    if (/^\d\d:\d\d$/.test(it.time || "")) { start = { dateTime: it.date + "T" + it.time + ":00", timeZone: tz }; end = { dateTime: plusMinutes(it.date, it.time, 60), timeZone: tz }; }
+    else { start = { date: it.date }; end = { date: plusDays(it.date, 1) }; }
     const sig = hash(JSON.stringify([summary, description, start, end]));
     return { summary, description, start, end, transparency: start.date ? "transparent" : "opaque", extendedProperties: { private: { appId: id, sig } } };
   }
@@ -850,7 +894,10 @@ button { cursor: pointer; }
         pageToken = r.nextPageToken || "";
       } while (pageToken);
       const want = {};
-      Object.entries(col.all()).forEach(([id, a]) => { if (a.nextDate && !a.example && !CLOSED.has(a.stage) && /^\d{4}-\d\d-\d\d$/.test(a.nextDate)) want[id] = eventFor(id, a); });
+      Object.entries(col.all()).forEach(([id, a]) => {
+        if (a.example || CLOSED.has(a.stage)) return;
+        datedItems(Object.assign({ id }, a)).forEach(it => { if (/^\d{4}-\d\d-\d\d$/.test(it.date)) { const key = it.primary ? id : id + "~" + it.key; want[key] = eventFor(key, a, it); } });
+      });
       for (const [id, body] of Object.entries(want)) {
         const ev = existing[id];
         if (!ev) await gcal(base, { method: "POST", body: JSON.stringify(body) });
