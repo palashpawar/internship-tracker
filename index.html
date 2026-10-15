@@ -107,6 +107,7 @@ button { cursor: pointer; }
 .chip:hover { border-color: var(--muted); }
 .chip b { font-family: var(--font-mono); font-weight: 500; font-variant-numeric: tabular-nums; }
 .chip.offer { background: var(--good-soft); border-color: transparent; color: var(--good); }
+.chip.accepted { background: var(--good); border-color: transparent; color: var(--surface); }
 .chip.hot { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
 .chip.closed { color: var(--muted); }
 
@@ -155,7 +156,8 @@ button { cursor: pointer; }
 .gh .n { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
 .gh .rule { flex: 1; height: 1px; background: var(--line); }
 .gh .toggle { background: none; border: 0; color: var(--accent); font-weight: 600; font-size: 13px; padding: 0; }
-.group.offer .gh h3 { color: var(--good); }
+.group.offer .gh h3, .group.accepted .gh h3 { color: var(--good); }
+.group.accepted .rows { border-color: var(--good); }
 .group.closed .gh h3 { color: var(--muted); }
 
 .rows { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
@@ -322,6 +324,7 @@ button { cursor: pointer; }
     { k: "interview", l: "Interviews" },
     { k: "final", l: "Final round" },
     { k: "offer", l: "Offer" },
+    { k: "accepted", l: "Accepted" },
     { k: "rejected", l: "Rejected" },
     { k: "withdrawn", l: "Withdrawn" }
   ];
@@ -330,6 +333,7 @@ button { cursor: pointer; }
   const CLOSED = new Set(["rejected", "withdrawn"]);
   // Groups shown on the page, furthest along first
   const GROUPS = [
+    { id: "accepted", title: "Accepted", chip: "Accepted", stages: ["accepted"], style: "rows" },
     { id: "offer", title: "Offers", chip: "Offers", stages: ["offer"], style: "rows" },
     { id: "final", title: "Final round", chip: "Final round", stages: ["final"], style: "rows" },
     { id: "interview", title: "Interviewing", chip: "Interviewing", stages: ["interview"], style: "rows" },
@@ -419,7 +423,7 @@ button { cursor: pointer; }
     GROUPS.forEach(g => {
       const n = apps.filter(a => g.stages.includes(a.stage)).length;
       if (!n) return;
-      const cls = g.id === "offer" ? "offer" : ["final", "interview", "screen"].includes(g.id) ? "hot" : g.id === "closed" ? "closed" : "";
+      const cls = g.id === "accepted" ? "accepted" : g.id === "offer" ? "offer" : ["final", "interview", "screen"].includes(g.id) ? "hot" : g.id === "closed" ? "closed" : "";
       s.append(h("a", { class: "chip " + cls, href: "#g-" + g.id }, g.chip, h("b", null, String(n))));
     });
   }
@@ -452,8 +456,8 @@ button { cursor: pointer; }
   function stepper(a) {
     const r = reachedIdx(a), filled = Math.max(0, Math.min(6, r));
     const rej = CLOSED.has(a.stage);
-    const cls = "steps" + (a.stage === "offer" ? " offer" : "") + (rej ? " rej" : "");
-    const label = rej ? `${LABEL[a.stage]} after ${STEP_LABELS[Math.max(0, filled - 1)].toLowerCase()}` : (filled ? `Step ${filled} of 6 · ${STEP_LABELS[filled - 1]}` : "Not applied yet");
+    const cls = "steps" + (a.stage === "offer" || a.stage === "accepted" ? " offer" : "") + (rej ? " rej" : "");
+    const label = rej ? `${LABEL[a.stage]} after ${STEP_LABELS[Math.max(0, filled - 1)].toLowerCase()}` : a.stage === "accepted" ? "Offer accepted ✓" : (filled ? `Step ${filled} of 6 · ${STEP_LABELS[filled - 1]}` : "Not applied yet");
     return h("div", { class: cls, title: label },
       h("div", { class: "track" }, STEP_LABELS.map((_, i) => h("span", { class: "seg" + (i < filled ? " on" : "") }))),
       h("div", { class: "lbl" }, label));
