@@ -220,6 +220,8 @@ button { cursor: pointer; }
 .evrow .x { font-size: 18px; padding: 2px 6px; }
 @media (max-width: 480px) { .evrow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 32px; } .evrow input:first-child { grid-column: 1 / -1; } }
 .sheet .full { grid-column: 1 / -1; }
+.sheet label.check { flex-direction: row; align-items: center; gap: 8px; font-weight: 500; color: var(--ink); }
+.sheet label.check input { width: auto; }
 .formerr { grid-column: 1 / -1; color: var(--bad); font-size: 13px; }
 .openlink { font-size: 12.5px; font-weight: 600; color: var(--accent); }
 </style>
@@ -300,6 +302,7 @@ button { cursor: pointer; }
     <label class="full">Role<input id="f-role" placeholder="e.g. Quantitative Trading Intern" autocomplete="off"></label>
     <label>Stage<select id="f-stage"></select></label>
     <label>Date applied<input id="f-applied" type="date"></label>
+    <label class="full check" id="oaDoneWrap"><input id="f-oaDone" type="checkbox"> Assessment completed, waiting to hear back</label>
     <label>Location<input id="f-location" placeholder="City or Remote" autocomplete="off"></label>
     <label>Pay<input id="f-pay" placeholder="e.g. $55/hr" autocomplete="off"></label>
     <label class="full">Posting link<input id="f-link" type="url" placeholder="https://" autocomplete="off"></label>
@@ -347,11 +350,13 @@ button { cursor: pointer; }
     { id: "final", title: "Final round", chip: "Final round", stages: ["final"], style: "rows" },
     { id: "interview", title: "Interviewing", chip: "Interviewing", stages: ["interview"], style: "rows" },
     { id: "screen", title: "Phone screen", chip: "Phone screen", stages: ["screen"], style: "rows" },
-    { id: "oa", title: "Assessments", chip: "Assessments", stages: ["oa"], style: "rows" },
+    { id: "oa", title: "Assessments to complete", chip: "Assessments to do", stages: ["oa"], when: a => !a.oaDone, style: "rows" },
+    { id: "oadone", title: "Assessment done, waiting to hear", chip: "Assessment done", stages: ["oa"], when: a => !!a.oaDone, style: "tiles", fold: 12 },
     { id: "applied", title: "Applied, waiting to hear", chip: "Waiting", stages: ["applied"], style: "tiles", fold: 12 },
     { id: "wishlist", title: "Not applied yet", chip: "Wishlist", stages: ["wishlist"], style: "tiles", fold: 12 },
     { id: "closed", title: "Closed", chip: "Closed", stages: ["rejected", "withdrawn"], style: "tiles", fold: 0 }
   ];
+  const inGroup = (g, a) => g.stages.includes(a.stage) && (!g.when || g.when(a));
   const STEP_LABELS = ["Applied", "Assessment", "Phone screen", "Interviews", "Final round", "Offer"];
 
   const $ = id => document.getElementById(id);
@@ -440,7 +445,7 @@ button { cursor: pointer; }
     const s = $("summary"); s.replaceChildren();
     if (!loaded) return;
     GROUPS.forEach(g => {
-      const n = apps.filter(a => g.stages.includes(a.stage)).length;
+      const n = apps.filter(a => inGroup(g, a)).length;
       if (!n) return;
       const cls = g.id === "accepted" ? "accepted" : g.id === "offer" ? "offer" : ["final", "interview", "screen"].includes(g.id) ? "hot" : g.id === "closed" ? "closed" : "";
       s.append(h("a", { class: "chip " + cls, href: "#g-" + g.id }, g.chip, h("b", null, String(n))));
@@ -499,7 +504,7 @@ button { cursor: pointer; }
     if (!apps.length) { root.append(h("div", { class: "emptybox" }, canWrite ? "No applications yet. Use Add application to log the first one." : "No applications yet.")); return; }
     let any = false;
     GROUPS.forEach(g => {
-      const items = apps.filter(a => g.stages.includes(a.stage) && matches(a))
+      const items = apps.filter(a => inGroup(g, a) && matches(a))
         .sort((a, b) => (a.nextDate || "9999").localeCompare(b.nextDate || "9999") || a.company.localeCompare(b.company));
       if (!items.length) return;
       any = true;
@@ -570,6 +575,7 @@ button { cursor: pointer; }
     $("evList").replaceChildren(); (Array.isArray(a?.events) ? a.events : []).slice().sort(byWhen).forEach(e => addEvRow(e));
     F("company").value = a?.company || ""; F("domain").value = a?.domain || ""; F("role").value = a?.role || "";
     F("stage").value = a?.stage || "wishlist"; F("applied").value = a?.applied || "";
+    F("oaDone").checked = !!a?.oaDone; $("oaDoneWrap").hidden = F("stage").value !== "oa";
     F("location").value = a?.location || ""; F("pay").value = a?.pay || "";
     F("link").value = a?.link || ""; F("next").value = a?.next || ""; F("nextDate").value = a?.nextDate || ""; F("nextTime").value = a?.nextTime || "";
     F("contact").value = a?.contact || ""; F("notes").value = a?.notes || "";
@@ -619,6 +625,7 @@ button { cursor: pointer; }
     $("logoHint").textContent = currentLogo() ? "Using your uploaded logo." : "Logo comes from the website. Upload one if it looks wrong.";
   }
   F("domain").addEventListener("change", showLogoPreview);
+  F("stage").addEventListener("change", () => { $("oaDoneWrap").hidden = F("stage").value !== "oa"; });
   $("logoClear").addEventListener("click", () => { pendingLogo = ""; showLogoPreview(); });
   F("logoFile").addEventListener("change", e => {
     const file = e.target.files[0]; e.target.value = "";
@@ -645,6 +652,7 @@ button { cursor: pointer; }
       contact: F("contact").value.trim(), notes: F("notes").value
     };
     const stage = F("stage").value;
+    vals.oaDone = stage === "oa" && F("oaDone").checked;
     const base = editing ? Object.assign({}, editing, vals) : Object.assign({ createdAt: new Date().toISOString() }, vals);
     const doc = withStage(base, stage);
     if (pendingLogo === "") delete doc.logo; else if (pendingLogo) doc.logo = pendingLogo;
