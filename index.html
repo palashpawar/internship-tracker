@@ -345,12 +345,12 @@ button { cursor: pointer; }
   const CLOSED = new Set(["rejected", "withdrawn"]);
   // Groups shown on the page, furthest along first
   const GROUPS = [
+    { id: "oa", title: "Assessments to complete", chip: "Assessments to do", stages: ["oa"], when: a => !a.oaDone, style: "rows" },
     { id: "accepted", title: "Accepted", chip: "Accepted", stages: ["accepted"], style: "rows" },
     { id: "offer", title: "Offers", chip: "Offers", stages: ["offer"], style: "rows" },
     { id: "final", title: "Final round", chip: "Final round", stages: ["final"], style: "rows" },
     { id: "interview", title: "Interviewing", chip: "Interviewing", stages: ["interview"], style: "rows" },
     { id: "screen", title: "Phone screen", chip: "Phone screen", stages: ["screen"], style: "rows" },
-    { id: "oa", title: "Assessments to complete", chip: "Assessments to do", stages: ["oa"], when: a => !a.oaDone, style: "rows" },
     { id: "oadone", title: "Assessment done, waiting to hear", chip: "Assessment done", stages: ["oa"], when: a => !!a.oaDone, style: "tiles", fold: 12 },
     { id: "applied", title: "Applied, waiting to hear", chip: "Waiting", stages: ["applied"], style: "tiles", fold: 12 },
     { id: "wishlist", title: "Not applied yet", chip: "Wishlist", stages: ["wishlist"], style: "tiles", fold: 12 },
