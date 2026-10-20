@@ -517,7 +517,7 @@ button { cursor: pointer; }
       if (g.style === "rows") {
         const rows = h("div", { class: "rows" });
         visibleItems.forEach(a => rows.append(h("button", { type: "button", class: "row", onclick: () => openSheet(a) },
-          h("div", { class: "who" }, logo(a, "lg"), h("div", { style: "min-width:0" }, h("div", { class: "nm" }, a.company, a.example ? h("span", { class: "tag" }, "Example") : null), a.role || a.location ? h("div", { class: "rl" }, [a.role, a.location].filter(Boolean).join(" · ")) : null)),
+          h("div", { class: "who" }, logo(a, "lg"), h("div", { style: "min-width:0" }, h("div", { class: "nm" }, a.company, a.example ? h("span", { class: "tag" }, "Example") : null), a.role || a.location || a.pay ? h("div", { class: "rl" }, [a.role, a.location, a.pay].filter(Boolean).join(" · ")) : null)),
           stepper(a),
           nextCell(a))));
         sec.append(rows);
@@ -527,7 +527,7 @@ button { cursor: pointer; }
           logo(a),
           h("div", { class: "tx" },
             h("div", { class: "nm" }, a.company, a.example ? h("span", { class: "tag" }, "Example") : null, g.id === "closed" ? h("span", { class: "tag" + (a.stage === "rejected" ? " bad" : "") }, LABEL[a.stage]) : null),
-            a.role || a.location || a.nextDate ? h("div", { class: "rl" }, [a.role, a.location, a.nextDate ? (a.next || "Next step") + " " + fmt(a.nextDate) : ""].filter(Boolean).join(" · ")) : null))));
+            a.role || a.location || a.pay || a.nextDate ? h("div", { class: "rl" }, [a.role, a.location, a.pay, a.nextDate ? (a.next || "Next step") + " " + fmt(a.nextDate) : ""].filter(Boolean).join(" · ")) : null))));
         sec.append(tiles);
       }
       root.append(sec);
