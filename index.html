@@ -297,15 +297,14 @@ button { cursor: pointer; }
 
   <div class="groups" id="topGroups"></div>
 
-  <section aria-labelledby="refH">
-    <div class="sech"><h2 id="refH">Referrals</h2>
-      <form class="refadd" id="refForm"><input class="field" id="refInput" placeholder="Add a company" autocomplete="off" aria-label="Company to add to referrals"><button class="btn sm" type="submit">Add</button></form></div>
-    <div id="referrals"></div>
-  </section>
-
   <section aria-labelledby="stH">
     <div class="sech"><h2 id="stH">Where everything stands</h2><input class="field" id="q" type="search" placeholder="Search companies, roles, notes" aria-label="Search applications"></div>
     <div class="groups" id="groups"></div>
+    <section class="group referrals" id="refSection" aria-labelledby="refH">
+      <div class="gh"><h3 id="refH">Referrals</h3><span class="n" id="refN"></span><span class="rule"></span>
+        <form class="refadd" id="refForm"><input class="field" id="refInput" placeholder="Add a company" autocomplete="off" aria-label="Company to add to referrals"><button class="btn sm" type="submit">Add</button></form></div>
+      <div id="referrals"></div>
+    </section>
   </section>
 </div>
 
@@ -446,10 +445,11 @@ button { cursor: pointer; }
   const matches = a => !query || [a.company, a.role, a.location, a.notes, a.contact, a.next].some(x => x && String(x).toLowerCase().includes(query));
 
   // ---- render
-  function render() { renderNotice(); renderSummary(); renderUpcoming(); renderReferrals(); renderGroups(); }
+  const refSection = $("refSection"), refList = $("referrals"), refN = $("refN");
+  function render() { renderNotice(); renderSummary(); renderUpcoming(); renderGroups(); renderReferrals(); }
 
   function renderReferrals() {
-    const root = $("referrals"); root.replaceChildren();
+    const root = refList; root.replaceChildren(); refN.textContent = referrals.length ? String(referrals.length) : "";
     if (!referrals.length) { root.append(h("div", { class: "emptybox" }, "No referrals yet. Add a company where someone can refer you.")); return; }
     const grid = h("div", { class: "tiles" });
     referrals.slice().sort((x, y) => x.company.localeCompare(y.company)).forEach(r => {
@@ -559,9 +559,11 @@ button { cursor: pointer; }
     const root = $("groups"); root.replaceChildren();
     const topRoot = $("topGroups"); topRoot.replaceChildren();
     if (!loaded) return;
-    if (!apps.length) { root.append(h("div", { class: "emptybox" }, canWrite ? "No applications yet. Use Add application to log the first one." : "No applications yet.")); return; }
-    let any = false;
+    if (!apps.length) { root.append(h("div", { class: "emptybox" }, canWrite ? "No applications yet. Use Add application to log the first one." : "No applications yet."), refSection); return; }
+    let any = false, refPlaced = false;
+    const placeRefs = () => { if (!refPlaced) { root.append(refSection); refPlaced = true; } };
     GROUPS.forEach(g => {
+      if (!g.top && GROUPS.indexOf(g) > GROUPS.findIndex(x => x.id === "screen")) placeRefs();
       const items = apps.filter(a => inGroup(g, a) && (g.top || matches(a)))
         .sort((a, b) => (a.nextDate || "9999").localeCompare(b.nextDate || "9999") || a.company.localeCompare(b.company));
       if (!items.length) return;
@@ -590,6 +592,7 @@ button { cursor: pointer; }
       }
       (g.top ? topRoot : root).append(sec);
     });
+    placeRefs();
     if (!any) root.append(h("div", { class: "emptybox" }, "No applications match “" + query + "”."));
   }
 
