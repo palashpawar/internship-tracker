@@ -148,6 +148,17 @@ button { cursor: pointer; }
 .later { margin-top: 10px; color: var(--muted); font-size: 13px; }
 .emptybox { background: var(--surface); border: 1px dashed var(--line); border-radius: var(--r); padding: 22px; color: var(--muted); text-align: center; }
 
+/* Referrals */
+.refadd { display: flex; gap: 6px; }
+.refadd .field { width: 200px; max-width: 60vw; padding: 5px 10px; }
+.reftile { position: relative; }
+.reftile .tile { padding-right: 34px; }
+.reftile .rm { position: absolute; top: 6px; right: 6px; border: 0; background: none; color: var(--muted); font-size: 16px; line-height: 1; padding: 4px 6px; border-radius: 6px; }
+.reftile .rm:hover { background: var(--sunken); color: var(--ink); }
+.reftile .st { font-weight: 600; color: var(--accent); }
+.reftile .st.offer, .reftile .st.accepted { color: var(--good); }
+.reftile .st.rejected, .reftile .st.withdrawn, .reftile .st.none { color: var(--muted); }
+
 /* Stage groups */
 .groups { display: flex; flex-direction: column; gap: 22px; }
 .group { scroll-margin-top: 16px; }
@@ -282,6 +293,12 @@ button { cursor: pointer; }
   <section aria-labelledby="upH">
     <div class="sech"><h2 id="upH">Coming up</h2><span class="cap">Dated next steps, soonest first. Amber means within 3 days.</span></div>
     <div id="upcoming"></div>
+  </section>
+
+  <section aria-labelledby="refH">
+    <div class="sech"><h2 id="refH">Referrals</h2>
+      <form class="refadd" id="refForm"><input class="field" id="refInput" placeholder="Add a company" autocomplete="off" aria-label="Company to add to referrals"><button class="btn sm" type="submit">Add</button></form></div>
+    <div id="referrals"></div>
   </section>
 
   <section aria-labelledby="stH">
@@ -419,13 +436,51 @@ button { cursor: pointer; }
   }
 
   // ---- state
+  const REF_KEY = "internship-pipeline:referrals";
+  let referrals = (() => { try { const r = JSON.parse(localStorage.getItem(REF_KEY) || "[]"); return Array.isArray(r) ? r : []; } catch (e) { return []; } })();
   let apps = [], loaded = false, col = null, canWrite = false, editing = null, query = "";
   const open = {};
   $("q").addEventListener("input", e => { query = e.target.value.trim().toLowerCase(); renderGroups(); });
   const matches = a => !query || [a.company, a.role, a.location, a.notes, a.contact, a.next].some(x => x && String(x).toLowerCase().includes(query));
 
   // ---- render
-  function render() { renderNotice(); renderSummary(); renderUpcoming(); renderGroups(); }
+  function render() { renderNotice(); renderSummary(); renderUpcoming(); renderReferrals(); renderGroups(); }
+
+  function renderReferrals() {
+    const root = $("referrals"); root.replaceChildren();
+    if (!referrals.length) { root.append(h("div", { class: "emptybox" }, "No referrals yet. Add a company where someone can refer you.")); return; }
+    const grid = h("div", { class: "tiles" });
+    referrals.slice().sort((x, y) => x.company.localeCompare(y.company)).forEach(r => {
+      const key = r.company.toLowerCase();
+      const mine = apps.filter(a => (a.company || "").toLowerCase() === key).sort((x, y) => reachedIdx(y) - reachedIdx(x));
+      const lines = mine.length ? mine.map(a => h("div", { class: "rl" }, h("span", { class: "st " + a.stage }, LABEL[a.stage]), a.role ? " · " + a.role : "")) : [h("div", { class: "rl" }, h("span", { class: "st none" }, "Not applied yet"))];
+      const open = () => {
+        const live = mine.find(a => !CLOSED.has(a.stage)) || mine[0];
+        if (live) return openSheet(live);
+        openSheet(null); F("company").value = r.company; if (r.domain) F("domain").value = r.domain; showLogoPreview();
+      };
+      grid.append(h("div", { class: "reftile" },
+        h("button", { type: "button", class: "tile", onclick: open }, logo(mine[0] || r), h("div", { class: "tx" }, h("div", { class: "nm" }, r.company), lines)),
+        canWrite ? h("button", { type: "button", class: "rm", "aria-label": "Remove " + r.company + " from referrals", title: "Remove", onclick: () => setReferrals(referrals.filter(x => x !== r)) }, "×") : null));
+    });
+    root.append(grid);
+  }
+  function setReferrals(next) {
+    referrals = next;
+    try { localStorage.setItem(REF_KEY, JSON.stringify(referrals)); } catch (e) {}
+    renderReferrals();
+    if (typeof schedulePush === "function") schedulePush();
+  }
+  $("refForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const name = $("refInput").value.trim();
+    if (!name) return;
+    if (!referrals.some(r => r.company.toLowerCase() === name.toLowerCase())) {
+      const match = apps.find(a => (a.company || "").toLowerCase() === name.toLowerCase());
+      setReferrals(referrals.concat([{ company: match ? match.company : name }]));
+    }
+    $("refInput").value = "";
+  });
 
   function renderNotice() {
     const n = $("notice");
@@ -740,9 +795,10 @@ button { cursor: pointer; }
     const text = f.truncated ? await (await fetch(f.raw_url, { cache: "no-store" })).text() : f.content;
     const p = JSON.parse(text || "{}");
     if (p && typeof p.calendarId === "string" && p.calendarId !== cal.calendarId) { cal.calendarId = p.calendarId; ls.set(CAL_KEY, p.calendarId); }
+    if (p && Array.isArray(p.referrals)) { referrals = p.referrals.filter(r => r && typeof r.company === "string"); ls.set(REF_KEY, JSON.stringify(referrals)); }
     return (p && typeof p.applications === "object" && p.applications) || {};
   }
-  const serialize = obj => JSON.stringify(Object.assign({ version: 1, updated: new Date().toISOString() }, cal.calendarId ? { calendarId: cal.calendarId } : {}, { applications: obj }), null, 1);
+  const serialize = obj => JSON.stringify(Object.assign({ version: 1, updated: new Date().toISOString() }, cal.calendarId ? { calendarId: cal.calendarId } : {}, { referrals }, { applications: obj }), null, 1);
   function syncError(e) {
     if (e && e.status === 401) { setSync("err", "GitHub rejected the token. Open Sync and connect again."); disconnect(true); return; }
     if (e && (e.status === 403 || e.status === 429)) { setSync("err", "GitHub is rate-limiting requests. Changes are kept here and will sync shortly."); setTimeout(() => sync.dirty ? push() : pull(), 60000); return; }
