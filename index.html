@@ -290,6 +290,8 @@ button { cursor: pointer; }
 
   <nav class="summary" id="summary" aria-label="Applications by stage"></nav>
 
+  <div class="groups" id="topGroups"></div>
+
   <section aria-labelledby="upH">
     <div class="sech"><h2 id="upH">Coming up</h2><span class="cap">Dated next steps, soonest first. Amber means within 3 days.</span></div>
     <div id="upcoming"></div>
@@ -362,7 +364,7 @@ button { cursor: pointer; }
   const CLOSED = new Set(["rejected", "withdrawn"]);
   // Groups shown on the page, furthest along first
   const GROUPS = [
-    { id: "oa", title: "Assessments to complete", chip: "Assessments to do", stages: ["oa"], when: a => !a.oaDone, style: "rows" },
+    { id: "oa", title: "Assessments to complete", chip: "Assessments to do", stages: ["oa"], when: a => !a.oaDone, style: "rows", top: true },
     { id: "accepted", title: "Accepted", chip: "Accepted", stages: ["accepted"], style: "rows" },
     { id: "offer", title: "Offers", chip: "Offers", stages: ["offer"], style: "rows" },
     { id: "final", title: "Final round", chip: "Final round", stages: ["final"], style: "rows" },
@@ -555,14 +557,15 @@ button { cursor: pointer; }
 
   function renderGroups() {
     const root = $("groups"); root.replaceChildren();
+    const topRoot = $("topGroups"); topRoot.replaceChildren();
     if (!loaded) return;
     if (!apps.length) { root.append(h("div", { class: "emptybox" }, canWrite ? "No applications yet. Use Add application to log the first one." : "No applications yet.")); return; }
     let any = false;
     GROUPS.forEach(g => {
-      const items = apps.filter(a => inGroup(g, a) && matches(a))
+      const items = apps.filter(a => inGroup(g, a) && (g.top || matches(a)))
         .sort((a, b) => (a.nextDate || "9999").localeCompare(b.nextDate || "9999") || a.company.localeCompare(b.company));
       if (!items.length) return;
-      any = true;
+      if (!g.top) any = true;
       const sec = h("section", { class: "group " + g.id, id: "g-" + g.id });
       const expanded = query || open[g.id] || (g.fold == null) || items.length <= g.fold;
       const visibleItems = expanded ? items : items.slice(0, g.fold);
@@ -585,7 +588,7 @@ button { cursor: pointer; }
             a.role || a.location || a.pay || a.nextDate ? h("div", { class: "rl" }, [a.role, a.location, a.pay, a.nextDate ? (a.next || "Next step") + " " + fmt(a.nextDate) : ""].filter(Boolean).join(" · ")) : null))));
         sec.append(tiles);
       }
-      root.append(sec);
+      (g.top ? topRoot : root).append(sec);
     });
     if (!any) root.append(h("div", { class: "emptybox" }, "No applications match “" + query + "”."));
   }
