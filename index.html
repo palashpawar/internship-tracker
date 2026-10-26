@@ -374,6 +374,7 @@ button { cursor: pointer; }
     { id: "wishlist", title: "Not applied yet", chip: "Wishlist", stages: ["wishlist"], style: "tiles", fold: 12 },
     { id: "closed", title: "Closed", chip: "Closed", stages: ["rejected", "withdrawn"], style: "tiles", fold: 0 }
   ];
+  const abc = (x, y) => String(x).localeCompare(String(y), undefined, { sensitivity: "base", numeric: true });
   const inGroup = (g, a) => g.stages.includes(a.stage) && (!g.when || g.when(a));
   const STEP_LABELS = ["Applied", "Assessment", "Phone screen", "Interviews", "Final round", "Offer"];
 
@@ -452,7 +453,7 @@ button { cursor: pointer; }
     const root = refList; root.replaceChildren(); refN.textContent = referrals.length ? String(referrals.length) : "";
     if (!referrals.length) { root.append(h("div", { class: "emptybox" }, "No referrals yet. Add a company where someone can refer you.")); return; }
     const grid = h("div", { class: "tiles" });
-    referrals.slice().sort((x, y) => x.company.localeCompare(y.company)).forEach(r => {
+    referrals.slice().sort((x, y) => abc(x.company, y.company)).forEach(r => {
       const key = r.company.toLowerCase();
       const mine = apps.filter(a => (a.company || "").toLowerCase() === key).sort((x, y) => reachedIdx(y) - reachedIdx(x));
       const lines = mine.length ? mine.map(a => h("div", { class: "rl" }, h("span", { class: "st " + a.stage }, LABEL[a.stage]), a.role ? " · " + a.role : "")) : [h("div", { class: "rl" }, h("span", { class: "st none" }, "Not applied yet"))];
@@ -565,7 +566,7 @@ button { cursor: pointer; }
     GROUPS.forEach(g => {
       if (!g.top && GROUPS.indexOf(g) > GROUPS.findIndex(x => x.id === "screen")) placeRefs();
       const items = apps.filter(a => inGroup(g, a) && (g.top || matches(a)))
-        .sort((a, b) => (a.nextDate || "9999").localeCompare(b.nextDate || "9999") || a.company.localeCompare(b.company));
+        .sort((a, b) => abc(a.company, b.company) || abc(a.role || "", b.role || ""));
       if (!items.length) return;
       if (!g.top) any = true;
       const sec = h("section", { class: "group " + g.id, id: "g-" + g.id });
