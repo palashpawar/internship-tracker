@@ -152,7 +152,9 @@ button { cursor: pointer; }
 .refadd { display: flex; gap: 6px; }
 .refadd .field { width: 200px; max-width: 60vw; padding: 5px 10px; }
 .reftile { position: relative; }
-.reftile .tile { padding-right: 34px; }
+.referrals .tiles { grid-auto-rows: 1fr; }
+.reftile .tile { padding-right: 34px; height: 100%; }
+.reftile .rl { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .reftile .rm { position: absolute; top: 6px; right: 6px; border: 0; background: none; color: var(--muted); font-size: 16px; line-height: 1; padding: 4px 6px; border-radius: 6px; }
 .reftile .rm:hover { background: var(--sunken); color: var(--ink); }
 .reftile .st { font-weight: 600; color: var(--accent); }
@@ -458,7 +460,7 @@ button { cursor: pointer; }
     referrals.slice().sort((x, y) => abc(x.company, y.company)).forEach(r => {
       const key = r.company.toLowerCase();
       const mine = apps.filter(a => (a.company || "").toLowerCase() === key).sort((x, y) => reachedIdx(y) - reachedIdx(x));
-      const lines = mine.length ? mine.map(a => h("div", { class: "rl" }, h("span", { class: "st " + a.stage }, LABEL[a.stage]), a.role ? " · " + a.role : "")) : [h("div", { class: "rl" }, h("span", { class: "st none" }, "Not applied yet"))];
+      const lines = mine.length ? mine.map(a => h("div", { class: "rl", title: a.role || "" }, h("span", { class: "st " + a.stage }, LABEL[a.stage]), a.role ? " · " + a.role : "")) : [h("div", { class: "rl" }, h("span", { class: "st none" }, "Not applied yet"))];
       const open = () => {
         const live = mine.find(a => !CLOSED.has(a.stage)) || mine[0];
         if (live) return openSheet(live);
