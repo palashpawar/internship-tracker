@@ -190,9 +190,9 @@ button { cursor: pointer; }
   .row .steps { order: 3; }
 }
 
-/* Progress stepper: Applied → Assessment → Screen → Interviews → Final → Offer */
+/* Progress stepper: only the steps this application actually went through, then what is left */
 .steps { display: flex; flex-direction: column; gap: 5px; }
-.steps .track { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; }
+.steps .track { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 3px; }
 .steps .seg { height: 6px; border-radius: 3px; background: var(--sunken); }
 .steps .seg.on { background: var(--accent); }
 .steps.offer .seg.on { background: var(--good); }
@@ -380,7 +380,8 @@ button { cursor: pointer; }
   ];
   const abc = (x, y) => String(x).localeCompare(String(y), undefined, { sensitivity: "base", numeric: true });
   const inGroup = (g, a) => g.stages.includes(a.stage) && (!g.when || g.when(a));
-  const STEP_LABELS = ["Applied", "Assessment", "Phone screen", "Interviews", "Final round", "Offer"];
+  const STEP_KEYS = ["applied", "oa", "screen", "interview", "final", "offer"];
+  const STEP_NAME = { applied: "Applied", oa: "Assessment", screen: "Phone screen", interview: "Interviews", final: "Final round", offer: "Offer" };
 
   const $ = id => document.getElementById(id);
   function h(tag, attrs, ...kids) {
@@ -541,13 +542,29 @@ button { cursor: pointer; }
     if (rest > 0) u.append(h("div", { class: "later" }, `${rest} more later: ` + all.slice(list.length, list.length + 4).map(it => `${it.a.company} (${fmt(it.date)})`).join(", ") + (rest > 4 ? "…" : "")));
   }
 
+  // Steps the application went through: every one starts at Applied, and an assessment
+  // or phone screen only counts if it happened. Upcoming steps are interviews, final, offer.
+  function visitedSteps(a) {
+    const r = reachedIdx(a), cur = a.stage === "accepted" ? "offer" : a.stage;
+    let done = (a.path || []).map(k => k === "accepted" ? "offer" : k).filter(k => STEP_KEYS.includes(k));
+    if (r >= 1 && !done.includes("applied")) done.unshift("applied");
+    if (r >= IDX.final && !done.includes("final")) done.push("final");
+    if (r >= IDX.offer && !done.includes("offer")) done.push("offer");
+    done = [...new Set(done)];
+    // the stage it's in right now is always the latest step
+    if (!CLOSED.has(a.stage) && STEP_KEYS.includes(cur)) done = done.filter(k => k !== cur).concat(cur);
+    return done;
+  }
   function stepper(a) {
-    const r = reachedIdx(a), filled = Math.max(0, Math.min(6, r));
-    const rej = CLOSED.has(a.stage);
+    const rej = CLOSED.has(a.stage), done = visitedSteps(a);
+    const last = Math.max(0, ...done.map(k => STEP_KEYS.indexOf(k)));
+    const ahead = rej ? [] : ["interview", "final", "offer"].filter(k => STEP_KEYS.indexOf(k) > last);
+    const steps = done.concat(ahead), filled = done.length;
     const cls = "steps" + (a.stage === "offer" || a.stage === "accepted" ? " offer" : "") + (rej ? " rej" : "");
-    const label = rej ? `${LABEL[a.stage]} after ${STEP_LABELS[Math.max(0, filled - 1)].toLowerCase()}` : a.stage === "accepted" ? "Offer accepted ✓" : (filled ? `Step ${filled} of 6 · ${STEP_LABELS[filled - 1]}` : "Not applied yet");
+    const cur = filled ? STEP_NAME[done[filled - 1]] : "";
+    const label = rej ? `${LABEL[a.stage]} after ${(cur || "applying").toLowerCase()}` : a.stage === "accepted" ? "Offer accepted ✓" : (filled ? `Step ${filled} of ${steps.length} · ${cur}` : "Not applied yet");
     return h("div", { class: cls, title: label },
-      h("div", { class: "track" }, STEP_LABELS.map((_, i) => h("span", { class: "seg" + (i < filled ? " on" : "") }))),
+      h("div", { class: "track" }, (steps.length ? steps : ["applied", "interview", "final", "offer"]).map((k, i) => h("span", { class: "seg" + (i < filled ? " on" : ""), title: STEP_NAME[k] }))),
       h("div", { class: "lbl" }, label));
   }
 
@@ -608,6 +625,7 @@ button { cursor: pointer; }
     if (!CLOSED.has(stage)) out.reached = Math.max(a.reached ?? -1, IDX[stage]);
     else out.reached = Math.max(a.reached ?? -1, CLOSED.has(a.stage) ? -1 : (IDX[a.stage] ?? -1));
     if (IDX[stage] >= 1 && !CLOSED.has(stage) && !out.applied) out.applied = todayISO();
+    if (IDX[stage] >= 1 && !CLOSED.has(stage)) out.path = [...new Set((a.path || []).concat(stage === "accepted" ? "offer" : stage))];
     out.updatedAt = new Date().toISOString();
     return out;
   }
