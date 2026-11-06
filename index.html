@@ -302,7 +302,7 @@ button { cursor: pointer; }
   <section aria-labelledby="stH">
     <div class="sech"><h2 id="stH">Where everything stands</h2><input class="field" id="q" type="search" placeholder="Search companies, roles, notes" aria-label="Search applications"></div>
     <div class="groups" id="groups"></div>
-    <section class="group referrals" id="refSection" aria-labelledby="refH">
+    <section class="group referrals" id="refSection" aria-labelledby="refH" style="display:none">
       <div class="gh"><h3 id="refH">Referrals</h3><span class="n" id="refN"></span><span class="rule"></span>
         <form class="refadd" id="refForm"><input class="field" id="refInput" placeholder="Add a company" autocomplete="off" aria-label="Company to add to referrals"><button class="btn sm" type="submit">Add</button></form></div>
       <div id="referrals"></div>
@@ -374,7 +374,6 @@ button { cursor: pointer; }
     { id: "interview", title: "Interviewing", chip: "Interviewing", stages: ["interview"], style: "rows" },
     { id: "screen", title: "Phone screen", chip: "Phone screen", stages: ["screen"], style: "rows" },
     { id: "wishlist", title: "Not applied yet", chip: "Wishlist", stages: ["wishlist"], style: "tiles", fold: 12 },
-    { id: "closed", title: "Closed", chip: "Closed", stages: ["rejected", "withdrawn"], style: "tiles", fold: 0 }
   ];
   const abc = (x, y) => String(x).localeCompare(String(y), undefined, { sensitivity: "base", numeric: true });
   const inGroup = (g, a) => g.stages.includes(a.stage) && (!g.when || g.when(a));
