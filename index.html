@@ -373,8 +373,6 @@ button { cursor: pointer; }
     { id: "final", title: "Final round left", chip: "Final round left", stages: ["final"], when: a => !a.finalDone, style: "rows" },
     { id: "interview", title: "Interviewing", chip: "Interviewing", stages: ["interview"], style: "rows" },
     { id: "screen", title: "Phone screen", chip: "Phone screen", stages: ["screen"], style: "rows" },
-    { id: "oadone", title: "Assessment done, waiting to hear", chip: "Assessment done", stages: ["oa"], when: a => !!a.oaDone, style: "tiles", fold: 12 },
-    { id: "applied", title: "Applied, waiting to hear", chip: "Waiting", stages: ["applied"], style: "tiles", fold: 12 },
     { id: "wishlist", title: "Not applied yet", chip: "Wishlist", stages: ["wishlist"], style: "tiles", fold: 12 },
     { id: "closed", title: "Closed", chip: "Closed", stages: ["rejected", "withdrawn"], style: "tiles", fold: 0 }
   ];
