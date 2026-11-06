@@ -367,7 +367,6 @@ button { cursor: pointer; }
   // Groups shown on the page, furthest along first
   const GROUPS = [
     { id: "oa", title: "Assessments to complete", chip: "Assessments to do", stages: ["oa"], when: a => !a.oaDone, style: "rows", top: true },
-    { id: "accepted", title: "Accepted", chip: "Accepted", stages: ["accepted"], style: "rows" },
     { id: "offer", title: "Offers", chip: "Offers", stages: ["offer"], style: "rows" },
     { id: "finaldone", title: "Final round done, waiting for results", chip: "Awaiting results", stages: ["final"], when: a => !!a.finalDone, style: "rows" },
     { id: "final", title: "Final round left", chip: "Final round left", stages: ["final"], when: a => !a.finalDone, style: "rows" },
