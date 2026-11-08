@@ -58,7 +58,7 @@ img { max-width: 100%; }
 html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; } }
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 14px; line-height: 1.45; }
-.wrap { max-width: 1120px; margin: 0 auto; padding: 28px 20px 72px; display: flex; flex-direction: column; gap: 28px; }
+.wrap { max-width: 1440px; margin: 0 auto; padding: 28px 20px 72px; display: flex; flex-direction: column; gap: 28px; }
 @media (max-width: 600px) { .wrap { padding: 18px 16px 56px; gap: 24px; } }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
@@ -189,6 +189,21 @@ button { cursor: pointer; }
   .row { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .row .steps { order: 3; }
 }
+
+/* Compact columns: each stage group is a vertical list, groups sit side by side */
+#groups.groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; align-items: start; }
+#groups .gh { gap: 8px; margin-bottom: 8px; }
+#groups .gh h3 { font-size: 12px; }
+#groups .row { grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 9px 12px; }
+#groups .who { gap: 9px; }
+#groups .who .nm { font-size: 14px; }
+#groups .who .rl { font-size: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+#groups .nx { font-size: 12.5px; }
+#groups .nx .d { font-size: 12px; }
+#groups .steps { gap: 3px; }
+#groups .steps .seg { height: 4px; }
+#groups .steps .lbl { font-size: 11px; }
+#groups .tiles { grid-template-columns: minmax(0, 1fr); gap: 6px; }
 
 /* Progress stepper: only the steps this application actually went through, then what is left */
 .steps { display: flex; flex-direction: column; gap: 5px; }
@@ -595,9 +610,9 @@ button { cursor: pointer; }
       if (g.style === "rows") {
         const rows = h("div", { class: "rows" });
         visibleItems.forEach(a => rows.append(h("button", { type: "button", class: "row", onclick: () => openSheet(a) },
-          h("div", { class: "who" }, logo(a, "lg"), h("div", { style: "min-width:0" }, h("div", { class: "nm" }, a.company, a.example ? h("span", { class: "tag" }, "Example") : null), a.role || a.location || a.pay ? h("div", { class: "rl" }, [a.role, a.location, a.pay].filter(Boolean).join(" · ")) : null)),
-          stepper(a),
-          nextCell(a))));
+          h("div", { class: "who" }, logo(a, "sm"), h("div", { style: "min-width:0" }, h("div", { class: "nm" }, a.company, a.example ? h("span", { class: "tag" }, "Example") : null), a.role || a.location || a.pay ? h("div", { class: "rl" }, [a.role, a.location, a.pay].filter(Boolean).join(" · ")) : null)),
+          nextCell(a),
+          stepper(a))));
         sec.append(rows);
       } else if (visibleItems.length) {
         const tiles = h("div", { class: "tiles" });
@@ -608,7 +623,7 @@ button { cursor: pointer; }
             a.role || a.location || a.pay || a.nextDate ? h("div", { class: "rl" }, [a.role, a.location, a.pay, a.nextDate ? (a.next || "Next step") + " " + fmt(a.nextDate) : ""].filter(Boolean).join(" · ")) : null))));
         sec.append(tiles);
       }
-      (g.top ? topRoot : root).append(sec);
+      root.append(sec);
     });
     placeRefs();
     if (!any) root.append(h("div", { class: "emptybox" }, "No applications match “" + query + "”."));
