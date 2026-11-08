@@ -203,6 +203,7 @@ button.pl:hover { border-color: var(--muted); }
 .pl.filled .term { color: var(--good); }
 .pl .nm { font-weight: 600; font-size: 13.5px; overflow-wrap: anywhere; }
 .pl .rl { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.pl .pay { margin-left: 8px; color: var(--ink); font-weight: 500; }
 .pl.empty .nm { color: var(--muted); font-weight: 500; }
 
 /* Compact "Coming up": one short card per dated step */
@@ -512,7 +513,8 @@ button.pl:hover { border-color: var(--muted); }
     TERMS.forEach(t => {
       const a = loaded ? apps.find(x => x.stage === "accepted" && x.term === t) : null;
       if (a) root.append(h("button", { type: "button", class: "pl filled", onclick: () => openSheet(a) }, logo(a, "sm"),
-        h("div", { class: "tx" }, h("div", { class: "term" }, t), h("div", { class: "nm" }, a.company), h("div", { class: "rl" }, [a.role, a.location].filter(Boolean).join(" · ")))));
+        h("div", { class: "tx" }, h("div", { class: "term" }, t), h("div", { class: "nm" }, a.company), a.role ? h("div", { class: "rl" }, a.role) : null,
+          a.location || a.pay ? h("div", { class: "rl" }, a.location || "", a.pay ? h("span", { class: "pay" }, a.pay) : null) : null)));
       else root.append(h("div", { class: "pl empty" }, h("div", { class: "tx" }, h("div", { class: "term" }, t), h("div", { class: "nm" }, "Open"))));
     });
   }
