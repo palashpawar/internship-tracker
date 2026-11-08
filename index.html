@@ -398,15 +398,15 @@ button { cursor: pointer; }
   const IDX = Object.fromEntries(STAGES.map((s, i) => [s.k, i]));
   const LABEL = Object.fromEntries(STAGES.map(s => [s.k, s.l]));
   const CLOSED = new Set(["rejected", "withdrawn"]);
-  // Groups shown on the page, furthest along first
+  // Groups shown on the page, earliest stage first
   const GROUPS = [
-    { id: "oa", title: "Assessments to complete", chip: "Assessments to do", stages: ["oa"], when: a => !a.oaDone, style: "rows", top: true },
-    { id: "offer", title: "Offers", chip: "Offers", stages: ["offer"], style: "rows" },
-    { id: "finaldone", title: "Final round done, waiting for results", chip: "Awaiting results", stages: ["final"], when: a => !!a.finalDone, style: "rows" },
-    { id: "final", title: "Final round left", chip: "Final round left", stages: ["final"], when: a => !a.finalDone, style: "rows" },
-    { id: "interview", title: "Interviewing", chip: "Interviewing", stages: ["interview"], style: "rows" },
-    { id: "screen", title: "Phone screen", chip: "Phone screen", stages: ["screen"], style: "rows" },
     { id: "wishlist", title: "Not applied yet", chip: "Wishlist", stages: ["wishlist"], style: "tiles", fold: 12 },
+    { id: "oa", title: "Assessments to complete", chip: "Assessments to do", stages: ["oa"], when: a => !a.oaDone, style: "rows", top: true },
+    { id: "screen", title: "Phone screen", chip: "Phone screen", stages: ["screen"], style: "rows" },
+    { id: "interview", title: "Interviewing", chip: "Interviewing", stages: ["interview"], style: "rows" },
+    { id: "final", title: "Final round left", chip: "Final round left", stages: ["final"], when: a => !a.finalDone, style: "rows" },
+    { id: "finaldone", title: "Final round done, waiting for results", chip: "Awaiting results", stages: ["final"], when: a => !!a.finalDone, style: "rows" },
+    { id: "offer", title: "Offers", chip: "Offers", stages: ["offer"], style: "rows" }
   ];
   const abc = (x, y) => String(x).localeCompare(String(y), undefined, { sensitivity: "base", numeric: true });
   const inGroup = (g, a) => g.stages.includes(a.stage) && (!g.when || g.when(a));
