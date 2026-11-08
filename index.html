@@ -190,6 +190,25 @@ button { cursor: pointer; }
   .row .steps { order: 3; }
 }
 
+/* Compact "Coming up": one short card per dated step */
+.wrap { gap: 18px; padding-top: 20px; }
+.sech { margin-bottom: 8px; }
+.sech h2 { font-size: 18px; }
+#upH + .cap { display: none; }
+.upgrid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
+.up-card { grid-template-columns: 38px minmax(0, 1fr); gap: 10px; align-items: center; padding: 7px 10px; border-radius: 10px; }
+.datebox { border-radius: 7px; }
+.datebox .dow { font-size: 9px; padding: 1px 0; }
+.datebox .day { font-size: 16px; padding-top: 1px; }
+.datebox .mon { font-size: 9px; padding-bottom: 2px; }
+.up-co { font-size: 13.5px; gap: 6px; }
+.up-co .logo { width: 18px; height: 18px; border-radius: 5px; }
+.up-co span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.up-what, .up-meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.up-what { margin-top: 1px; font-size: 12.5px; }
+.up-meta { margin-top: 0; font-size: 11.5px; }
+.later { margin-top: 6px; font-size: 12px; }
+
 /* Compact columns: each stage group is a vertical list, groups sit side by side */
 #groups.groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; align-items: start; }
 #groups .gh { gap: 8px; margin-bottom: 8px; }
