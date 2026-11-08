@@ -190,12 +190,27 @@ button { cursor: pointer; }
   .row .steps { order: 3; }
 }
 
+/* Placements: one slot per term, filled by an accepted application whose "term" matches */
+.toprow { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 20px; align-items: start; }
+@media (max-width: 900px) { .toprow { grid-template-columns: minmax(0, 1fr); gap: 18px; } }
+.plgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.pl { display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; text-align: left; width: 100%; min-width: 0; }
+button.pl:hover { border-color: var(--muted); }
+.pl.filled { border-color: var(--good); }
+.pl.empty { border-style: dashed; background: none; }
+.pl .tx { min-width: 0; }
+.pl .term { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.pl.filled .term { color: var(--good); }
+.pl .nm { font-weight: 600; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pl .rl { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pl.empty .nm { color: var(--muted); font-weight: 500; }
+
 /* Compact "Coming up": one short card per dated step */
-.wrap { gap: 18px; padding-top: 20px; }
+.wrap { gap: 18px; padding-top: 20px; padding-bottom: 32px; }
 .sech { margin-bottom: 8px; }
 .sech h2 { font-size: 18px; }
 #upH + .cap { display: none; }
-.upgrid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
+.upgrid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
 .up-card { grid-template-columns: 38px minmax(0, 1fr); gap: 10px; align-items: center; padding: 7px 10px; border-radius: 10px; }
 .datebox { border-radius: 7px; }
 .datebox .dow { font-size: 9px; padding: 1px 0; }
@@ -326,10 +341,17 @@ button { cursor: pointer; }
 
   <nav class="summary" id="summary" aria-label="Applications by stage"></nav>
 
+  <div class="toprow">
+  <section aria-labelledby="plH">
+    <div class="sech"><h2 id="plH">Placements</h2></div>
+    <div class="plgrid" id="placements"></div>
+  </section>
+
   <section aria-labelledby="upH">
     <div class="sech"><h2 id="upH">Coming up</h2><span class="cap">Dated next steps, soonest first. Amber means within 3 days.</span></div>
     <div id="upcoming"></div>
   </section>
+  </div>
 
   <div class="groups" id="topGroups"></div>
 
@@ -482,8 +504,18 @@ button { cursor: pointer; }
 
   // ---- render
   const refSection = $("refSection"), refList = $("referrals"), refN = $("refN");
-  function render() { renderNotice(); renderSummary(); renderUpcoming(); renderGroups(); renderReferrals(); }
+  function render() { renderNotice(); renderSummary(); renderPlacements(); renderUpcoming(); renderGroups(); renderReferrals(); }
 
+  const TERMS = ["Spring 2027", "Summer 2027", "Fall 2027"];
+  function renderPlacements() {
+    const root = $("placements"); root.replaceChildren();
+    TERMS.forEach(t => {
+      const a = loaded ? apps.find(x => x.stage === "accepted" && x.term === t) : null;
+      if (a) root.append(h("button", { type: "button", class: "pl filled", onclick: () => openSheet(a) }, logo(a, "sm"),
+        h("div", { class: "tx" }, h("div", { class: "term" }, t), h("div", { class: "nm" }, a.company), h("div", { class: "rl" }, [a.role, a.location].filter(Boolean).join(" · ")))));
+      else root.append(h("div", { class: "pl empty" }, h("div", { class: "tx" }, h("div", { class: "term" }, t), h("div", { class: "nm" }, "Open"))));
+    });
+  }
   function renderReferrals() {
     const root = refList; root.replaceChildren(); refN.textContent = referrals.length ? String(referrals.length) : "";
     if (!referrals.length) { root.append(h("div", { class: "emptybox" }, "No referrals yet. Add a company where someone can refer you.")); return; }
