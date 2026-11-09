@@ -431,7 +431,7 @@ button.pl:hover { border-color: var(--muted); }
     { id: "screen", title: "Phone screen", chip: "Phone screen", stages: ["screen"], style: "rows" },
     { id: "interview", title: "Interviewing", chip: "Interviewing", stages: ["interview"], style: "rows" },
     { id: "final", title: "Final round left", chip: "Final round left", stages: ["final"], when: a => !a.finalDone, style: "rows" },
-    { id: "finaldone", title: "Final round done, waiting for results", chip: "Awaiting results", stages: ["final"], when: a => !!a.finalDone, style: "rows" },
+    { id: "finaldone", title: "Final round done", chip: "Awaiting results", stages: ["final"], when: a => !!a.finalDone, style: "rows" },
     { id: "offer", title: "Offers", chip: "Offers", stages: ["offer"], style: "rows" }
   ];
   const abc = (x, y) => String(x).localeCompare(String(y), undefined, { sensitivity: "base", numeric: true });
