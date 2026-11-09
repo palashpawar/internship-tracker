@@ -120,6 +120,11 @@ button { cursor: pointer; }
 /* Logos */
 .logo { flex: none; width: 36px; height: 36px; border-radius: 9px; display: inline-grid; place-items: center; overflow: hidden; background: #FFFFFF; border: 1px solid var(--line); }
 .logo img { width: 72%; height: 72%; object-fit: contain; display: block; }
+.logo img.full { width: 100%; height: 100%; object-fit: cover; }
+/* One logo size for the columns and placements */
+#groups .logo, .plgrid .pl .logo { width: 40px; height: 40px; border-radius: 9px; }
+#groups .logo .mono, .plgrid .pl .logo .mono { font-size: 15px; }
+.up-card .up-co .logo { width: 22px; height: 22px; border-radius: 6px; }
 .logo .mono { width: 100%; height: 100%; display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: 14px; letter-spacing: -.02em;
   background: hsl(var(--h) var(--mono-s) var(--mono-l)); color: hsl(var(--h) 45% var(--mono-fg)); }
 .logo.lg { width: 44px; height: 44px; border-radius: 11px; }
@@ -217,7 +222,6 @@ button.pl:hover { border-color: var(--muted); }
 .datebox .day { font-size: 16px; padding-top: 1px; }
 .datebox .mon { font-size: 9px; padding-bottom: 2px; }
 .up-co { font-size: 13.5px; gap: 6px; }
-.up-co .logo { width: 18px; height: 18px; border-radius: 5px; }
 .up-co span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .up-what, .up-meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .up-what { margin-top: 1px; font-size: 12.5px; }
@@ -482,7 +486,7 @@ button.pl:hover { border-color: var(--muted); }
   function logo(a, size) {
     const box = h("span", { class: "logo " + (size || ""), "aria-hidden": "true" });
     const mono = h("span", { class: "mono", style: "--h:" + (strHash(a.company || "") % 360) }, initials(a.company));
-    if (typeof a.logo === "string" && /^data:image\/(png|jpeg|webp|gif);base64,/.test(a.logo)) { box.append(h("img", { alt: "", src: a.logo })); return box; }
+    if (typeof a.logo === "string" && /^data:image\/(png|jpeg|webp|gif);base64,/.test(a.logo)) { box.append(h("img", { alt: "", src: a.logo, class: "full" })); return box; }
     const d = domainOf(a);
     const src = d ? "https://www.google.com/s2/favicons?domain=" + encodeURIComponent(d) + "&sz=128" : "";
     if (!src || logoState.get(src) === "bad") { box.append(mono); return box; }
