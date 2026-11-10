@@ -627,9 +627,11 @@ button.pl:hover { border-color: var(--muted); }
     const rej = CLOSED.has(a.stage), done = visitedSteps(a);
     const last = Math.max(0, ...done.map(k => STEP_KEYS.indexOf(k)));
     const ahead = rej ? [] : ["interview", "final", "offer"].filter(k => STEP_KEYS.indexOf(k) > last);
-    const steps = done.concat(ahead), filled = done.length;
+    let steps = done.concat(ahead), filled = done.length;
+    const ov = !rej && a.steps && a.steps.total ? a.steps : null;
+    if (ov) { filled = Math.min(ov.done, ov.total); steps = Array.from({ length: ov.total }, (_, i) => steps[Math.min(i, steps.length - 1)] || "applied"); }
     const cls = "steps" + (a.stage === "offer" || a.stage === "accepted" ? " offer" : "") + (rej ? " rej" : "");
-    const cur = filled ? STEP_NAME[done[filled - 1]] : "";
+    const cur = done.length ? STEP_NAME[done[done.length - 1]] : "";
     const label = rej ? `${LABEL[a.stage]} after ${(cur || "applying").toLowerCase()}` : a.stage === "accepted" ? "Offer accepted ✓" : (filled ? `Step ${filled} of ${steps.length} · ${cur}` : "Not applied yet");
     return h("div", { class: cls, title: label },
       h("div", { class: "track" }, (steps.length ? steps : ["applied", "interview", "final", "offer"]).map((k, i) => h("span", { class: "seg" + (i < filled ? " on" : ""), title: STEP_NAME[k] }))),
