@@ -228,6 +228,17 @@ button.pl:hover { border-color: var(--muted); }
 .up-meta { margin-top: 0; font-size: 11.5px; }
 .later { margin-top: 6px; font-size: 12px; }
 
+/* Coming up cards match Placements cards: same fixed square size */
+.toprow { grid-template-columns: auto minmax(0, 1fr); }
+.plgrid { grid-template-columns: repeat(3, 180px); gap: 8px; }
+.upgrid { grid-template-columns: repeat(auto-fill, 180px); gap: 8px; }
+.pl, .up-card { width: 180px; height: 122px; box-sizing: border-box; }
+.up-card { align-items: center; overflow: hidden; }
+.up-co span, .up-what { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.up-what { margin-top: 3px; }
+.up-meta { white-space: normal; margin-top: 2px; }
+@media (max-width: 900px) { .plgrid, .upgrid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } .pl, .up-card { width: 100%; } }
+
 /* Compact columns: each stage group is a vertical list, groups sit side by side */
 #groups.groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; align-items: start; }
 #groups .gh { gap: 8px; margin-bottom: 8px; }
