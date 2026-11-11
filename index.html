@@ -237,6 +237,9 @@ button.pl:hover { border-color: var(--muted); }
 .up-co span, .up-what { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .up-what { margin-top: 3px; }
 .up-meta { white-space: normal; margin-top: 2px; }
+.pl { padding: 8px 10px; gap: 8px; }
+.pl .tx { flex: 1; min-width: 0; }
+.pl .tx > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
 @media (max-width: 900px) { .plgrid, .upgrid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } .pl, .up-card { width: 100%; } }
 
 /* Compact columns: each stage group is a vertical list, groups sit side by side */
